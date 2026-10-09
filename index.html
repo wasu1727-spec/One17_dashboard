@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinic Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>ClinicDash</h2>
+            </div>
+            <div class="filters">
+                <h3>Filters</h3>
+                
+                <div class="filter-group">
+                    <label for="dateFilter">Date Range</label>
+                    <input type="date" id="dateStart" class="filter-input">
+                    <input type="date" id="dateEnd" class="filter-input">
+                </div>
+
+                <div class="filter-group">
+                    <label for="opdFilter">OPD</label>
+                    <select id="opdFilter" class="filter-input">
+                        <option value="all">All OPDs</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="nationFilter">Nationality</label>
+                    <select id="nationFilter" class="filter-input">
+                        <option value="all">All Nationalities</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="riskGroupFilter">Risk Group</label>
+                    <select id="riskGroupFilter" class="filter-input">
+                        <option value="all">All Risk Groups</option>
+                    </select>
+                </div>
+
+                <button id="applyFilters" class="btn-primary">Apply Filters</button>
+                <button id="resetFilters" class="btn-secondary">Reset</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header>
+                <h1>Patient Risk Dashboard</h1>
+                <p class="subtitle">Overview of patient demographics and risk factors</p>
+            </header>
+
+            <section class="summary-cards">
+                <div class="card summary-card">
+                    <div class="card-icon blue">🏥</div>
+                    <div class="card-info">
+                        <h3>Total Patients</h3>
+                        <p id="totalPatients" class="number">0</p>
+                    </div>
+                </div>
+                <div class="card summary-card">
+                    <div class="card-icon green">📍</div>
+                    <div class="card-info">
+                        <h3>With Comma Address</h3>
+                        <p id="commaAddrCount" class="number">0</p>
+                    </div>
+                </div>
+                <div class="card summary-card">
+                    <div class="card-icon red">⚠️</div>
+                    <div class="card-info">
+                        <h3>High Risk Group</h3>
+                        <p id="highRiskCount" class="number">0</p>
+                    </div>
+                </div>
+                <div class="card summary-card">
+                    <div class="card-icon purple">🌍</div>
+                    <div class="card-info">
+                        <h3>Top Nationality</h3>
+                        <p id="topNation" class="number">-</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="charts-section">
+                <div class="card chart-card">
+                    <h3>สัดส่วนประเภท OPD / IPD / ไม่ระบุ</h3>
+                    <div class="opd-summary-table-container">
+                        <table class="opd-summary-table">
+                            <thead>
+                                <tr>
+                                    <th>ประเภทแผนก</th>
+                                    <th>กลุ่ม OPD / IPD</th>
+                                    <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
+                                    <th style="text-align: right;">สัดส่วน (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="opdSummaryTableBody">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                            <tfoot id="opdSummaryTableFoot">
+                                <!-- Populated dynamically by JS -->
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <h3>รายละเอียดแผนก OPD / IPD</h3>
+                    <div class="opd-summary-table-container">
+                        <table class="opd-summary-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 70px; text-align: center;">ลำดับ</th>
+                                    <th>ชื่อแผนก OPD / IPD</th>
+                                    <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="opdDetailTableBody">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                            <tfoot id="opdDetailTableFoot">
+                                <!-- Populated dynamically by JS -->
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <h3>Nationality Distribution</h3>
+                    <div class="chart-container">
+                        <canvas id="nationChart"></canvas>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <h3>รายละเอียดกลุ่มเสี่ยงหลัก (Risk Group)</h3>
+                    <div class="opd-summary-table-container">
+                        <table class="opd-summary-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 70px; text-align: center;">ลำดับ</th>
+                                    <th>กลุ่มเสี่ยงหลัก (Risk Group)</th>
+                                    <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="riskGroupDetailTableBody">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                            <tfoot id="riskGroupDetailTableFoot">
+                                <!-- Populated dynamically by JS -->
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <h3>รายละเอียดประเภทความเสี่ยง (Risk Type)</h3>
+                    <div class="opd-summary-table-container scrollable-table-container">
+                        <table class="opd-summary-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 70px; text-align: center;">ลำดับ</th>
+                                    <th>ประเภท/ปัจจัยเสี่ยง (Risk Type)</th>
+                                    <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="riskTypeDetailTableBody">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                            <tfoot id="riskTypeDetailTableFoot">
+                                <!-- Populated dynamically by JS -->
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <h3>รายละเอียดอำเภอ (PAMPUR_NAME)</h3>
+                    <div class="opd-summary-table-container scrollable-table-container">
+                        <table class="opd-summary-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 70px; text-align: center;">ลำดับ</th>
+                                    <th>อำเภอ (PAMPUR_NAME)</th>
+                                    <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ampurDetailTableBody">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                            <tfoot id="ampurDetailTableFoot">
+                                <!-- Populated dynamically by JS -->
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="table-section card">
+                <div class="table-header">
+                    <h3>Detailed Patient Records</h3>
+                    <div class="table-actions">
+                        <input type="text" id="searchInput" placeholder="Search records..." class="search-input">
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Date</th>
+                                <th>Address</th>
+                                <th>OPD</th>
+                                <th>Nationality</th>
+                                <th>Risk Group</th>
+                                <th>Risk Type</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="script.js?v=14"></script>
+</body>
+</html>
