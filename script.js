@@ -91,6 +91,17 @@ function loadViaScriptTag() {
     document.body.appendChild(script);
 }
 
+// Function to extract OPD / IPD department from ADDR string
+function extractOpdFromAddr(rawAddr) {
+    if (!rawAddr || typeof rawAddr !== 'string') return 'ไม่ระบุ OPD';
+    const str = rawAddr.trim();
+    const match = str.match(/(OPD|IPD)[^,\d]+/i);
+    if (match) {
+        return match[0].trim();
+    }
+    return 'ไม่ระบุ OPD';
+}
+
 // Callback Function for Google Sheet JSONP
 window.parseGoogleSheetJSONP = function(response) {
     try {
@@ -129,16 +140,6 @@ window.parseGoogleSheetJSONP = function(response) {
             }
             return val;
         };
-
-function extractOpdFromAddr(rawAddr) {
-    if (!rawAddr || typeof rawAddr !== 'string') return 'ไม่ระบุ OPD';
-    const str = rawAddr.trim();
-    const match = str.match(/(OPD|IPD)[^,\d]+/i);
-    if (match) {
-        return match[0].trim();
-    }
-    return 'ไม่ระบุ OPD';
-}
 
         rawData = rows.map((row, index) => {
             let hn = getVal(row, 'DT07_HN') || getVal(row, 'HN') || getVal(row, 'DT07_NHSO_ID') || getVal(row, 'No') || getVal(row, 'ID') || `PT-${1000 + index + 1}`;
@@ -231,7 +232,11 @@ function initFilters() {
 function populateSelect(id, options) {
     const select = document.getElementById(id);
     if (!select) return;
-    options.forEach(opt => {
+    const firstOption = select.options[0];
+    const firstText = firstOption ? firstOption.textContent : 'All';
+    const firstVal = firstOption ? firstOption.value : 'all';
+    select.innerHTML = `<option value="${firstVal}">${firstText}</option>`;
+    options.filter(Boolean).sort().forEach(opt => {
         const el = document.createElement('option');
         el.value = opt;
         el.textContent = opt;
