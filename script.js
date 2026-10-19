@@ -37,6 +37,9 @@ const generateMockData = (count) => {
 const SHEET_ID = '1m6jy95C82D4pWs2MaanSmnxLvPlJC7tJ';
 const SHEET_GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:parseGoogleSheetJSONP`;
 
+// Google Apps Script Web App URL สำหรับบันทึกข้อมูลย้อนกลับเข้า Google Sheet
+let GOOGLE_SCRIPT_WEBAPP_URL = localStorage.getItem('clinic_google_webapp_url') || '';
+
 let rawData = [];
 let filteredData = [];
 
@@ -763,7 +766,7 @@ function updateCharts() {
 }
 
 // ==========================================
-// EXCEL IMPORT & DEDUPLICATION LOGIC
+// EXCEL IMPORT & GOOGLE SHEET SYNC LOGIC
 // ==========================================
 function setupExcelImport() {
     const inputHeader = document.getElementById('excelFileInputHeader');
@@ -771,6 +774,16 @@ function setupExcelImport() {
     const modal = document.getElementById('importModal');
     const closeBtn = document.getElementById('closeImportModal');
     const confirmBtn = document.getElementById('confirmImportModal');
+
+    // Settings Modal Elements
+    const btnSettingsHeader = document.getElementById('btnOpenSheetSettingsHeader');
+    const btnSettingsSidebar = document.getElementById('btnOpenSheetSettingsSidebar');
+    const settingsModal = document.getElementById('sheetSettingsModal');
+    const closeSettingsBtn = document.getElementById('closeSheetSettingsModal');
+    const inputUrl = document.getElementById('inputWebAppUrl');
+    const btnSaveUrl = document.getElementById('btnSaveWebAppUrl');
+    const btnTestUrl = document.getElementById('btnTestWebAppUrl');
+    const statusBox = document.getElementById('connectionStatusBox');
 
     if (inputHeader) {
         inputHeader.addEventListener('change', (e) => {
@@ -801,16 +814,103 @@ function setupExcelImport() {
             if (e.target === modal) closeModal();
         });
     }
+
+    // Settings Modal Handlers
+    const openSettings = () => {
+        if (inputUrl) inputUrl.value = GOOGLE_SCRIPT_WEBAPP_URL || '';
+        if (statusBox) {
+            if (GOOGLE_SCRIPT_WEBAPP_URL) {
+                statusBox.style.display = 'block';
+                statusBox.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+                statusBox.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+                statusBox.style.color = '#34d399';
+                statusBox.innerHTML = '🟢 มีการเชื่อมต่อ Web App URL แล้ว (ข้อมูลใหม่จะถูกบันทึกลง Google Sheet อัตโนมัติ)';
+            } else {
+                statusBox.style.display = 'none';
+            }
+        }
+        if (settingsModal) settingsModal.style.display = 'flex';
+    };
+
+    const closeSettings = () => {
+        if (settingsModal) settingsModal.style.display = 'none';
+    };
+
+    if (btnSettingsHeader) btnSettingsHeader.addEventListener('click', openSettings);
+    if (btnSettingsSidebar) btnSettingsSidebar.addEventListener('click', openSettings);
+    if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', closeSettings);
+    if (settingsModal) {
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) closeSettings();
+        });
+    }
+
+    // Save Web App URL
+    if (btnSaveUrl) {
+        btnSaveUrl.addEventListener('click', () => {
+            const val = inputUrl ? inputUrl.value.trim() : '';
+            GOOGLE_SCRIPT_WEBAPP_URL = val;
+            if (val) {
+                localStorage.setItem('clinic_google_webapp_url', val);
+            } else {
+                localStorage.removeItem('clinic_google_webapp_url');
+            }
+            if (statusBox) {
+                statusBox.style.display = 'block';
+                statusBox.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+                statusBox.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+                statusBox.style.color = '#34d399';
+                statusBox.innerHTML = '✅ บันทึกการตั้งค่าเรียบร้อยแล้ว!';
+            }
+            setTimeout(closeSettings, 1000);
+        });
+    }
+
+    // Test Web App URL Connection
+    if (btnTestUrl) {
+        btnTestUrl.addEventListener('click', async () => {
+            const val = inputUrl ? inputUrl.value.trim() : '';
+            if (!val) {
+                alert("กรุณากรอก URL เว็บแอปก่อนทำการทดสอบ");
+                return;
+            }
+            if (statusBox) {
+                statusBox.style.display = 'block';
+                statusBox.style.backgroundColor = 'rgba(59, 130, 246, 0.15)';
+                statusBox.style.border = '1px solid rgba(59, 130, 246, 0.4)';
+                statusBox.style.color = '#60a5fa';
+                statusBox.innerHTML = '⏳ กำลังทดสอบการเชื่อมต่อกับ Google Apps Script...';
+            }
+
+            try {
+                // Ping Web App with a simple GET
+                await fetch(val + (val.includes('?') ? '&' : '?') + 'ping=1', { mode: 'no-cors' });
+                if (statusBox) {
+                    statusBox.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+                    statusBox.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+                    statusBox.style.color = '#34d399';
+                    statusBox.innerHTML = '🟢 เชื่อมต่อกับ Google Apps Script สำเร็จ พร้อมใช้งาน!';
+                }
+            } catch (err) {
+                if (statusBox) {
+                    statusBox.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+                    statusBox.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+                    statusBox.style.color = '#f87171';
+                    statusBox.innerHTML = '❌ ไม่สามารถเชื่อมต่อได้: ' + err.message;
+                }
+            }
+        });
+    }
 }
 
-function handleExcelFile(file) {
+async function handleExcelFile(file) {
     if (typeof XLSX === 'undefined') {
         alert("ระบบอ่านไฟล์ Excel (SheetJS) กำลังโหลด กรุณารอสักครู่แล้วลองใหม่อีกครั้ง");
         return;
     }
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array', cellDates: true });
@@ -850,6 +950,7 @@ function handleExcelFile(file) {
             let addedCount = 0;
             let duplicateCount = 0;
             const newRecords = [];
+            const newRawExcelRows = [];
             const newFileIds = new Set();
 
             rows.forEach((row, idx) => {
@@ -917,10 +1018,11 @@ function handleExcelFile(file) {
                     risk_type: risk_type
                 });
 
+                newRawExcelRows.push(row);
                 addedCount++;
             });
 
-            // อัปเดตเข้าระบบถ้ามีข้อมูลใหม่
+            // อัปเดตเข้าระบบแดชบอร์ดทันที
             if (newRecords.length > 0) {
                 rawData = [...newRecords, ...rawData];
                 filteredData = [...rawData];
@@ -928,8 +1030,21 @@ function handleExcelFile(file) {
                 updateDashboard();
             }
 
-            // แสดง Modal สรุปผลการนำเข้า
-            showImportResultModal(file.name, rows.length, addedCount, duplicateCount, rawData.length);
+            // จัดการเรื่องการ Sync บันทึกย้อนกลับลง Google Sheet
+            if (addedCount > 0 && GOOGLE_SCRIPT_WEBAPP_URL) {
+                showImportResultModal(file.name, rows.length, addedCount, duplicateCount, rawData.length, 'syncing');
+                try {
+                    await syncToGoogleSheet(newRawExcelRows);
+                    showImportResultModal(file.name, rows.length, addedCount, duplicateCount, rawData.length, 'success');
+                } catch (syncErr) {
+                    console.error("Google Sheet Sync Error:", syncErr);
+                    showImportResultModal(file.name, rows.length, addedCount, duplicateCount, rawData.length, 'error');
+                }
+            } else if (addedCount > 0 && !GOOGLE_SCRIPT_WEBAPP_URL) {
+                showImportResultModal(file.name, rows.length, addedCount, duplicateCount, rawData.length, 'no_url');
+            } else {
+                showImportResultModal(file.name, rows.length, addedCount, duplicateCount, rawData.length, 'none');
+            }
 
         } catch (err) {
             console.error("Excel Import Error:", err);
@@ -939,7 +1054,21 @@ function handleExcelFile(file) {
     reader.readAsArrayBuffer(file);
 }
 
-function showImportResultModal(fileName, totalRows, addedCount, duplicateCount, totalInSystem) {
+// ฟังก์ชันส่งข้อมูลเข้า Google Apps Script เพื่อเขียนลง Google Sheet
+async function syncToGoogleSheet(rows) {
+    if (!GOOGLE_SCRIPT_WEBAPP_URL) return;
+    const response = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
+        method: 'POST',
+        mode: 'no-cors', // ทำงานได้กับ Apps Script โดยไม่ติดบล็อก CORS
+        headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify({ rows: rows })
+    });
+    return response;
+}
+
+function showImportResultModal(fileName, totalRows, addedCount, duplicateCount, totalInSystem, syncStatus = 'none') {
     const modal = document.getElementById('importModal');
     const content = document.getElementById('importModalContent');
     const statusSidebar = document.getElementById('importStatusSidebar');
@@ -949,8 +1078,42 @@ function showImportResultModal(fileName, totalRows, addedCount, duplicateCount, 
     }
 
     if (!modal || !content) {
-        alert(`นำเข้าข้อมูลจาก ${fileName} สำเร็จ!\n- ข้อมูลใหม่ที่เพิ่ม: ${addedCount} รายการ\n- ข้อมูลที่ซ้ำ (ข้ามอัตโนมัติ): ${duplicateCount} รายการ\n- ยอดรวมผู้ป่วยในระบบ: ${totalInSystem} รายการ`);
+        alert(`นำเข้าข้อมูลจาก ${fileName} สำเร็จ!\n- ข้อมูลใหม่ที่เพิ่ม: ${addedCount} รายการ\n- ข้อมูลที่ซ้ำ: ${duplicateCount} รายการ\n- ยอดรวมผู้ป่วยในระบบ: ${totalInSystem} รายการ`);
         return;
+    }
+
+    let syncBannerHtml = '';
+    if (syncStatus === 'syncing') {
+        syncBannerHtml = `
+            <div class="sync-banner syncing">
+                ⏳ <strong>กำลังบันทึกข้อมูล ${addedCount.toLocaleString()} รายการลงใน Google Sheet...</strong>
+            </div>
+        `;
+    } else if (syncStatus === 'success') {
+        syncBannerHtml = `
+            <div class="sync-banner success">
+                ✅ <strong>บันทึกข้อมูลเข้า Google Sheet เรียบร้อยแล้ว!</strong><br>
+                <span style="font-size: 12px; color: #a7f3d0;">แถวใหม่ถูกเขียนลงใน Google Sheet อัตโนมัติแล้ว</span>
+            </div>
+        `;
+    } else if (syncStatus === 'no_url') {
+        syncBannerHtml = `
+            <div class="sync-banner warning">
+                <strong>⚠️ ยังไม่ได้บันทึกลงใน Google Sheet จริง</strong><br>
+                <span style="font-size: 12.5px; color: #fde68a;">ข้อมูลแสดงผลบนแดชบอร์ดชั่วคราวแล้ว แต่หากต้องการให้บันทึกลง Google Sheet ถาวรแบบอัตโนมัติ กรุณาเชื่อมต่อ Web App</span>
+                <br>
+                <button id="modalBtnConfigureSheet" class="btn-configure-sheet">
+                    ⚙️ ตั้งค่าเชื่อมต่อ Google Sheet
+                </button>
+            </div>
+        `;
+    } else if (syncStatus === 'error') {
+        syncBannerHtml = `
+            <div class="sync-banner error">
+                ❌ <strong>เกิดข้อผิดพลาดในการบันทึกลง Google Sheet</strong><br>
+                <span style="font-size: 12px; color: #fecaca;">กรุณาตรวจสอบ URL เว็บแอป หรือสิทธิ์การเข้าถึง (Who has access: Anyone)</span>
+            </div>
+        `;
     }
 
     content.innerHTML = `
@@ -971,7 +1134,19 @@ function showImportResultModal(fileName, totalRows, addedCount, duplicateCount, 
         <div style="background-color: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px; margin-top: 12px;">
             <span style="font-size: 13px; color: var(--primary);">🏥 <strong>ยอดรวมผู้ป่วยในระบบล่าสุด:</strong> ${totalInSystem.toLocaleString()} ราย</span>
         </div>
+
+        ${syncBannerHtml}
     `;
+
+    // Hook up configuration button inside modal if present
+    const btnConfig = document.getElementById('modalBtnConfigureSheet');
+    if (btnConfig) {
+        btnConfig.addEventListener('click', () => {
+            modal.style.display = 'none';
+            const settingsBtn = document.getElementById('btnOpenSheetSettingsHeader');
+            if (settingsBtn) settingsBtn.click();
+        });
+    }
 
     modal.style.display = 'flex';
 }
