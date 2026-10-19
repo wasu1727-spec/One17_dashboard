@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -47,13 +48,32 @@
 
                 <button id="applyFilters" class="btn-primary">Apply Filters</button>
                 <button id="resetFilters" class="btn-secondary">Reset</button>
+
+                <div class="filter-group import-group">
+                    <label>นำเข้าข้อมูล Excel</label>
+                    <label for="excelFileInputSidebar" class="btn-import-sidebar">
+                        <span class="icon">📥</span> นำเข้าไฟล์ Excel
+                    </label>
+                    <input type="file" id="excelFileInputSidebar" accept=".xlsx, .xls, .csv" style="display: none;">
+                    <span id="importStatusSidebar" class="import-status"></span>
+                </div>
             </div>
         </aside>
 
         <main class="main-content">
             <header>
-                <h1>Patient Risk Dashboard</h1>
-                <p class="subtitle">Overview of patient demographics and risk factors</p>
+                <div class="header-content">
+                    <div>
+                        <h1>Patient Risk Dashboard</h1>
+                        <p class="subtitle">Overview of patient demographics and risk factors</p>
+                    </div>
+                    <div class="header-actions">
+                        <label for="excelFileInputHeader" class="btn-import-header">
+                            <span class="icon">📊</span> นำเข้าข้อมูล Excel (.xlsx, .csv)
+                        </label>
+                        <input type="file" id="excelFileInputHeader" accept=".xlsx, .xls, .csv" style="display: none;">
+                    </div>
+                </div>
             </header>
 
             <section class="summary-cards">
@@ -176,14 +196,15 @@
                     </div>
                 </div>
                 <div class="card chart-card">
-                    <h3>รายละเอียดอำเภอ (PAMPUR_NAME)</h3>
+                    <h3>รายละเอียดเขตพื้นที่ผู้ป่วย (AMPUR_PATIENT)</h3>
                     <div class="opd-summary-table-container scrollable-table-container">
                         <table class="opd-summary-table">
                             <thead>
                                 <tr>
                                     <th style="width: 70px; text-align: center;">ลำดับ</th>
-                                    <th>อำเภอ (PAMPUR_NAME)</th>
+                                    <th>เขตพื้นที่ (AMPUR_PATIENT)</th>
                                     <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
+                                    <th style="text-align: right;">สัดส่วน (%)</th>
                                 </tr>
                             </thead>
                             <tbody id="ampurDetailTableBody">
@@ -225,6 +246,23 @@
             </section>
         </main>
     </div>
-    <script src="script.js?v=14"></script>
+
+    <!-- Import Result Modal -->
+    <div id="importModal" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>📊 ผลการนำเข้าข้อมูล Excel</h3>
+                <button id="closeImportModal" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="importModalContent">
+                <!-- Dynamically generated result -->
+            </div>
+            <div class="modal-footer">
+                <button id="confirmImportModal" class="btn-primary" style="margin-top: 0; width: 100%;">ตกลง</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js?v=16"></script>
 </body>
 </html>

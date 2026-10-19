@@ -54,6 +54,7 @@ window.google.visualization.Query.setResponse = function(response) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    setupExcelImport();
     const tbody = document.getElementById('tableBody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #94a3b8;">กำลังโหลดข้อมูลจาก Google Sheets...</td></tr>';
 
@@ -146,15 +147,15 @@ function extractOpdFromAddr(rawAddr) {
             
             let addr = getVal(row, 'ADDR') || getVal(row, 'Address');
             let mu = getVal(row, 'MU');
-            let tam = getVal(row, 'PTAMBON_NAME');
-            let amp = getVal(row, 'PAMPUR_NAME') || getVal(row, 'AMPUR_NAME');
-            let prov = getVal(row, 'PCHANGWAT_NAME') || getVal(row, 'DT07_CHANGWAT');
+            let tam = getVal(row, 'TAMBON_PATIENT') || getVal(row, 'PTAMBON_NAME');
+            let ampRaw = (getVal(row, 'AMPUR_PATIENT') || getVal(row, 'PAMPUR_NAME') || getVal(row, 'AMPUR_NAME')).trim();
+            let prov = getVal(row, 'CHANGWAT_PATIENT') || getVal(row, 'PCHANGWAT_NAME') || getVal(row, 'DT07_CHANGWAT');
 
             let addrParts = [];
             if (addr) addrParts.push(addr);
             if (mu) addrParts.push('ม.' + mu);
             if (tam) addrParts.push('ต.' + tam);
-            if (amp) addrParts.push('อ.' + amp);
+            if (ampRaw) addrParts.push('อ.' + ampRaw);
             if (prov) addrParts.push('จ.' + prov);
 
             let fullAddr = addrParts.length > 0 ? addrParts.join(' ') : '-';
@@ -163,6 +164,8 @@ function extractOpdFromAddr(rawAddr) {
             let risk_group = getVal(row, 'RISK_GROUP') || getVal(row, 'Risk Group') || '-';
             let risk_type = getVal(row, 'RISK_TYPE') || getVal(row, 'Risk Type') || '-';
 
+            let ampArea = (ampRaw === 'เมืองเชียงราย' || ampRaw.includes('เมืองเชียงราย')) ? 'ในเขตอำเภอเมืองเชียงราย' : 'นอกเขต';
+
             return {
                 id: hn,
                 name: name,
@@ -170,7 +173,8 @@ function extractOpdFromAddr(rawAddr) {
                 addr: fullAddr,
                 rawAddr: addr,
                 opd: opd,
-                amp: amp || '-',
+                amp: ampArea,
+                ampRaw: ampRaw,
                 nation: nation,
                 risk_group: risk_group,
                 risk_type: risk_type
@@ -274,7 +278,9 @@ function applySearch() {
             (d.name && d.name.toLowerCase().includes(term)) ||
             d.addr.toLowerCase().includes(term) ||
             d.nation.toLowerCase().includes(term) ||
-            d.opd.toLowerCase().includes(term)
+            d.opd.toLowerCase().includes(term) ||
+            (d.amp && d.amp.toLowerCase().includes(term)) ||
+            (d.ampRaw && d.ampRaw.toLowerCase().includes(term))
         );
     }
     updateDashboard();
@@ -511,32 +517,63 @@ function updateAmpurDetailTable() {
     const tfoot = document.getElementById('ampurDetailTableFoot');
     if (!tbody) return;
 
-    if (filteredData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 20px;">ไม่พบข้อมูลอำเภอ</td></tr>';
+    const total = filteredData.length;
+    if (total === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">ไม่พบข้อมูลเขตพื้นที่</td></tr>';
         if (tfoot) tfoot.innerHTML = '';
         return;
     }
 
-    const counts = {};
+    let inDistrictCount = 0;
+    let outDistrictCount = 0;
+    const outDistrictBreakdown = {};
+
     filteredData.forEach(d => {
-        const ampur = (d.amp && d.amp !== '-') ? d.amp : 'ไม่ระบุอำเภอ';
-        counts[ampur] = (counts[ampur] || 0) + 1;
+        const raw = (d.ampRaw || '').trim();
+        if (raw === 'เมืองเชียงราย' || raw.includes('เมืองเชียงราย')) {
+            inDistrictCount++;
+        } else {
+            outDistrictCount++;
+            const subName = raw && raw !== '-' ? raw : 'ไม่ระบุ';
+            outDistrictBreakdown[subName] = (outDistrictBreakdown[subName] || 0) + 1;
+        }
     });
 
-    const sortedAmpurs = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    const inPct = total > 0 ? ((inDistrictCount / total) * 100).toFixed(2) : '0.00';
+    const outPct = total > 0 ? ((outDistrictCount / total) * 100).toFixed(2) : '0.00';
 
     let html = '';
-    let grandTotal = 0;
+    // รายการที่ 1: ในเขตอำเภอเมืองเชียงราย
+    html += `
+        <tr>
+            <td style="text-align: center; color: var(--text-muted); font-weight: 500;">1</td>
+            <td><span class="opd-dot green"></span> <strong>ในเขตอำเภอเมืองเชียงราย</strong></td>
+            <td style="text-align: right; font-weight: 600;">${inDistrictCount.toLocaleString()}</td>
+            <td style="text-align: right; font-weight: 600; color: #10b981;">${inPct}%</td>
+        </tr>
+    `;
 
-    sortedAmpurs.forEach((ampur, index) => {
-        const count = counts[ampur];
-        grandTotal += count;
+    // รายการที่ 2: นอกเขต (ยอดรวม)
+    html += `
+        <tr>
+            <td style="text-align: center; color: var(--text-muted); font-weight: 500;">2</td>
+            <td><span class="opd-dot orange"></span> <strong>นอกเขต</strong></td>
+            <td style="text-align: right; font-weight: 600;">${outDistrictCount.toLocaleString()}</td>
+            <td style="text-align: right; font-weight: 600; color: #f59e0b;">${outPct}%</td>
+        </tr>
+    `;
 
+    // รายการอำเภอย่อยของนอกเขต เพื่อให้เลื่อนดูได้
+    const sortedOut = Object.keys(outDistrictBreakdown).sort((a, b) => outDistrictBreakdown[b] - outDistrictBreakdown[a]);
+    sortedOut.forEach((sub, idx) => {
+        const cnt = outDistrictBreakdown[sub];
+        const pct = total > 0 ? ((cnt / total) * 100).toFixed(2) : '0.00';
         html += `
-            <tr>
-                <td style="text-align: center; color: var(--text-muted); font-weight: 500;">${index + 1}</td>
-                <td><span class="opd-dot green"></span> <strong>${ampur}</strong></td>
-                <td style="text-align: right; font-weight: 600;">${count.toLocaleString()}</td>
+            <tr style="opacity: 0.9; font-size: 0.95em;">
+                <td style="text-align: center; color: var(--text-muted);">${idx + 3}</td>
+                <td style="padding-left: 28px;"><span class="opd-dot grey"></span> นอกเขต (${sub})</td>
+                <td style="text-align: right;">${cnt.toLocaleString()}</td>
+                <td style="text-align: right; color: var(--text-muted);">${pct}%</td>
             </tr>
         `;
     });
@@ -547,8 +584,9 @@ function updateAmpurDetailTable() {
         tfoot.innerHTML = `
             <tr>
                 <td style="text-align: center;"><strong>รวม</strong></td>
-                <td><strong>รวมผู้ป่วยทุกอำเภอ</strong></td>
-                <td style="text-align: right; font-weight: 700; color: #10b981;">${grandTotal.toLocaleString()} คน</td>
+                <td><strong>รวมผู้ป่วยทุกเขตพื้นที่</strong></td>
+                <td style="text-align: right; font-weight: 700; color: #3b82f6;">${total.toLocaleString()}</td>
+                <td style="text-align: right; font-weight: 700; color: #3b82f6;">100.0%</td>
             </tr>
         `;
     }
@@ -717,4 +755,218 @@ function updateCharts() {
             y: { stacked: true }
         }
     });
+}
+
+// ==========================================
+// EXCEL IMPORT & DEDUPLICATION LOGIC
+// ==========================================
+function setupExcelImport() {
+    const inputHeader = document.getElementById('excelFileInputHeader');
+    const inputSidebar = document.getElementById('excelFileInputSidebar');
+    const modal = document.getElementById('importModal');
+    const closeBtn = document.getElementById('closeImportModal');
+    const confirmBtn = document.getElementById('confirmImportModal');
+
+    if (inputHeader) {
+        inputHeader.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                handleExcelFile(e.target.files[0]);
+                e.target.value = '';
+            }
+        });
+    }
+
+    if (inputSidebar) {
+        inputSidebar.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                handleExcelFile(e.target.files[0]);
+                e.target.value = '';
+            }
+        });
+    }
+
+    const closeModal = () => {
+        if (modal) modal.style.display = 'none';
+    };
+
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (confirmBtn) confirmBtn.addEventListener('click', closeModal);
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+    }
+}
+
+function handleExcelFile(file) {
+    if (typeof XLSX === 'undefined') {
+        alert("ระบบอ่านไฟล์ Excel (SheetJS) กำลังโหลด กรุณารอสักครู่แล้วลองใหม่อีกครั้ง");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+            
+            if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                alert("ไฟล์ Excel ไม่มีแผ่นงาน (Sheet)");
+                return;
+            }
+
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
+
+            if (!rows || rows.length === 0) {
+                alert("ไม่พบข้อมูลในไฟล์ Excel ที่เลือก");
+                return;
+            }
+
+            // รวบรวม existing identifiers เพื่อตรวจสอบความซ้ำ
+            const existingIds = new Set(rawData.map(d => String(d.id || '').trim().toLowerCase()));
+            const existingCids = new Set(rawData.filter(d => d.cid).map(d => String(d.cid || '').trim().toLowerCase()));
+
+            const getField = (row, aliases) => {
+                for (let alias of aliases) {
+                    for (let key in row) {
+                        if (key.trim().toLowerCase() === alias.trim().toLowerCase()) {
+                            let val = row[key];
+                            if (val !== null && val !== undefined && String(val).trim() !== '') {
+                                return String(val).trim();
+                            }
+                        }
+                    }
+                }
+                return '';
+            };
+
+            let addedCount = 0;
+            let duplicateCount = 0;
+            const newRecords = [];
+            const newFileIds = new Set();
+
+            rows.forEach((row, idx) => {
+                let hn = getField(row, ['DT07_HN', 'HN', 'ID', 'PID', 'DT07_NHSO_ID', 'No']);
+                let cid = getField(row, ['CID', 'DT07_CID', 'CIDREAL']);
+
+                if (!hn && !cid) {
+                    return; // ข้ามแถวที่ไม่มีทั้ง HN และ CID
+                }
+
+                let idKey = (hn || cid).toLowerCase();
+                let cidKey = cid ? cid.toLowerCase() : '';
+
+                // ตรวจสอบความซ้ำกับข้อมูลเดิมในระบบ หรือซ้ำภายในไฟล์เดียวกัน
+                let isDuplicate = existingIds.has(idKey) || (cidKey && existingCids.has(cidKey)) || newFileIds.has(idKey);
+
+                if (isDuplicate) {
+                    duplicateCount++;
+                    return; // ข้ามข้อมูลที่ซ้ำกันอัตโนมัติ
+                }
+
+                // บันทึก ID ที่นำเข้าเพื่อไม่ให้ซ้ำกับแถวถัดไปในไฟล์
+                newFileIds.add(idKey);
+                if (cidKey) newFileIds.add(cidKey);
+
+                let name = getField(row, ['PNAME', 'NAME', 'ชื่อ-นามสกุล', 'ชื่อ']);
+                let date = getField(row, ['START_DATE', 'DT07_START_DATE', 'DATE_REGIS', 'DT07_DATE_REGIS', 'Date', 'วันที่']);
+                if (date.length === 8 && /^\d{8}$/.test(date)) {
+                    date = `${date.substring(0,4)}-${date.substring(4,6)}-${date.substring(6,8)}`;
+                }
+
+                let addr = getField(row, ['ADDR', 'Address', 'ที่อยู่']);
+                let mu = getField(row, ['MU', 'หมู่']);
+                let tam = getField(row, ['TAMBON_PATIENT', 'PTAMBON_NAME', 'ตำบล']);
+                let ampRaw = (getField(row, ['AMPUR_PATIENT', 'PAMPUR_NAME', 'AMPUR_NAME', 'อำเภอ'])).trim();
+                let prov = getField(row, ['CHANGWAT_PATIENT', 'PCHANGWAT_NAME', 'DT07_CHANGWAT', 'จังหวัด']);
+
+                let addrParts = [];
+                if (addr) addrParts.push(addr);
+                if (mu) addrParts.push('ม.' + mu);
+                if (tam) addrParts.push('ต.' + tam);
+                if (ampRaw) addrParts.push('อ.' + ampRaw);
+                if (prov) addrParts.push('จ.' + prov);
+
+                let fullAddr = addrParts.length > 0 ? addrParts.join(' ') : (addr || '-');
+                let opd = extractOpdFromAddr(addr) || getField(row, ['HOSP_NAME', 'DT07_HOSP_NAME', 'OPD']) || 'ไม่ระบุ OPD';
+                let nation = getField(row, ['NATION', 'DT07_PEOPLE_TYPE', 'PEOPLE_TYPE', 'สัญชาติ']) || 'ไทย';
+                let risk_group = getField(row, ['RISK_GROUP', 'Risk Group', 'กลุ่มเสี่ยง']) || '-';
+                let risk_type = getField(row, ['RISK_TYPE', 'Risk Type', 'ประเภทความเสี่ยง']) || '-';
+
+                let ampArea = (ampRaw === 'เมืองเชียงราย' || ampRaw.includes('เมืองเชียงราย')) ? 'ในเขตอำเภอเมืองเชียงราย' : 'นอกเขต';
+
+                newRecords.push({
+                    id: hn || cid || `PT-IMP-${1000 + idx}`,
+                    cid: cid,
+                    name: name,
+                    date: date || '-',
+                    addr: fullAddr,
+                    rawAddr: addr,
+                    opd: opd,
+                    amp: ampArea,
+                    ampRaw: ampRaw,
+                    nation: nation,
+                    risk_group: risk_group,
+                    risk_type: risk_type
+                });
+
+                addedCount++;
+            });
+
+            // อัปเดตเข้าระบบถ้ามีข้อมูลใหม่
+            if (newRecords.length > 0) {
+                rawData = [...newRecords, ...rawData];
+                filteredData = [...rawData];
+                initFilters();
+                updateDashboard();
+            }
+
+            // แสดง Modal สรุปผลการนำเข้า
+            showImportResultModal(file.name, rows.length, addedCount, duplicateCount, rawData.length);
+
+        } catch (err) {
+            console.error("Excel Import Error:", err);
+            alert("เกิดข้อผิดพลาดในการอ่านไฟล์ Excel: " + err.message);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function showImportResultModal(fileName, totalRows, addedCount, duplicateCount, totalInSystem) {
+    const modal = document.getElementById('importModal');
+    const content = document.getElementById('importModalContent');
+    const statusSidebar = document.getElementById('importStatusSidebar');
+
+    if (statusSidebar) {
+        statusSidebar.textContent = `นำเข้าล่าสุด: +${addedCount} รายการ`;
+    }
+
+    if (!modal || !content) {
+        alert(`นำเข้าข้อมูลจาก ${fileName} สำเร็จ!\n- ข้อมูลใหม่ที่เพิ่ม: ${addedCount} รายการ\n- ข้อมูลที่ซ้ำ (ข้ามอัตโนมัติ): ${duplicateCount} รายการ\n- ยอดรวมผู้ป่วยในระบบ: ${totalInSystem} รายการ`);
+        return;
+    }
+
+    content.innerHTML = `
+        <p style="margin-bottom: 8px;"><strong>ชื่อไฟล์:</strong> <span style="color: var(--text-muted);">${fileName}</span></p>
+        <p style="margin-bottom: 16px;"><strong>ข้อมูลที่ตรวจพบทั้งหมด:</strong> ${totalRows.toLocaleString()} แถว</p>
+        
+        <div class="modal-stat-box">
+            <div class="stat-item success">
+                <span style="font-size: 13px; color: var(--text-muted);">นำเข้าสำเร็จ (ใหม่)</span>
+                <div class="num">+${addedCount.toLocaleString()}</div>
+            </div>
+            <div class="stat-item warning">
+                <span style="font-size: 13px; color: var(--text-muted);">ข้อมูลซ้ำเดิม (ข้าม)</span>
+                <div class="num">${duplicateCount.toLocaleString()}</div>
+            </div>
+        </div>
+
+        <div style="background-color: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px; margin-top: 12px;">
+            <span style="font-size: 13px; color: var(--primary);">🏥 <strong>ยอดรวมผู้ป่วยในระบบล่าสุด:</strong> ${totalInSystem.toLocaleString()} ราย</span>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
 }
