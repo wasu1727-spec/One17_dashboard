@@ -3,26 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clinic Dashboard</title>
+    <title>รายงานข้อมูลการขึ้นทะเบียนผู้ป่วยวัณโรค (TB) | โรงพยาบาลเชียงรายประชานุเคราะห์</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Flatpickr Calendar -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="dashboard-container">
         <aside class="sidebar">
             <div class="logo">
-                <h2>ClinicDash</h2>
+                <h2>TB Registry</h2>
+                <span style="font-size: 11.5px; color: #94a3b8; display: block; margin-top: 3px; font-weight: 500;">รพ.เชียงรายประชานุเคราะห์</span>
             </div>
             <div class="filters">
                 <h3>Filters</h3>
                 
-                <div class="filter-group">
-                    <label for="dateFilter">Date Range</label>
-                    <input type="date" id="dateStart" class="filter-input">
-                    <input type="date" id="dateEnd" class="filter-input">
+                <div class="filter-group date-filter-group">
+                    <div class="filter-header-row">
+                        <label>📅 ปฏิทินขึ้นทะเบียน (DATE_REGIS)</label>
+                        <button type="button" id="btnToggleCalendarView" class="btn-toggle-view" title="สลับแสดง/ย่อปฏิทิน">
+                            <span id="toggleCalendarIcon">📆</span> <span id="toggleCalendarText">ย่อปฏิทิน</span>
+                        </button>
+                    </div>
+
+                    <!-- Quick Preset Buttons -->
+                    <div class="date-quick-presets">
+                        <button type="button" class="preset-chip active" data-preset="all">ทั้งหมด</button>
+                        <button type="button" class="preset-chip" data-preset="oct25">ต.ค. 68</button>
+                        <button type="button" class="preset-chip" data-preset="month">เดือนนี้</button>
+                        <button type="button" class="preset-chip" data-preset="days30">30 วัน</button>
+                    </div>
+
+                    <!-- Visual Inline Calendar Container -->
+                    <div id="calendarInlineWrapper" class="calendar-inline-wrapper">
+                        <div id="calendarInline"></div>
+                    </div>
+
+                    <!-- Date range inputs summary -->
+                    <div class="date-range-inputs">
+                        <div class="date-input-col">
+                            <span class="date-input-label">ตั้งแต่วันที่:</span>
+                            <div class="input-with-icon">
+                                <input type="text" id="dateStart" class="filter-input flatpickr-input-custom" placeholder="YYYY-MM-DD" autocomplete="off" title="คลิกเพื่อเลือกวันที่เริ่มต้นจากปฏิทิน">
+                                <span class="input-calendar-icon">📅</span>
+                            </div>
+                        </div>
+                        <div class="date-input-col">
+                            <span class="date-input-label">ถึงวันที่:</span>
+                            <div class="input-with-icon">
+                                <input type="text" id="dateEnd" class="filter-input flatpickr-input-custom" placeholder="YYYY-MM-DD" autocomplete="off" title="คลิกเพื่อเลือกวันที่สิ้นสุดจากปฏิทิน">
+                                <span class="input-calendar-icon">📅</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="dateFilterInfo" class="date-filter-info"></div>
                 </div>
 
                 <div class="filter-group">
@@ -46,8 +88,12 @@
                     </select>
                 </div>
 
-                <button id="applyFilters" class="btn-primary">Apply Filters</button>
-                <button id="resetFilters" class="btn-secondary">Reset</button>
+                <button id="applyFilters" class="btn-primary btn-process">
+                    <span class="icon">📊</span> ประมวลรายงาน
+                </button>
+                <button id="resetFilters" class="btn-secondary" style="margin-top: 8px; width: 100%;">
+                    <span class="icon">🔄</span> รีเซ็ต (Reset)
+                </button>
 
                 <div class="filter-group import-group">
                     <label>นำเข้าข้อมูล Excel</label>
@@ -64,54 +110,46 @@
         </aside>
 
         <main class="main-content">
-            <header>
+            <header class="dashboard-header">
                 <div class="header-content">
-                    <div>
-                        <h1>Patient Risk Dashboard</h1>
-                        <p class="subtitle">Overview of patient demographics and risk factors</p>
+                    <div class="header-title-box">
+                        <div class="hospital-badge">
+                            <span class="hospital-icon">🏥</span>
+                            <span class="hospital-name">โรงพยาบาลเชียงรายประชานุเคราะห์</span>
+                        </div>
+                        <h1>รายงานข้อมูลการขึ้นทะเบียนผู้ป่วยวัณโรค (TB Registry Dashboard)</h1>
+                        <p class="subtitle">กลุ่มงานอายุรกรรมและคลินิกวัณโรค (TB Clinic) • ระบบติดตามและวิเคราะห์ข้อมูลผู้ป่วย</p>
                     </div>
+
                     <div class="header-actions">
-                        <button id="btnOpenSheetSettingsHeader" class="btn-settings-header" title="ตั้งค่าเชื่อมต่อ Google Sheet สำหรับบันทึกข้อมูล">
-                            <span class="icon">⚙️</span> ตั้งค่าเชื่อมต่อ Sheet
-                        </button>
-                        <label for="excelFileInputHeader" class="btn-import-header">
-                            <span class="icon">📊</span> นำเข้าข้อมูล Excel (.xlsx, .csv)
-                        </label>
-                        <input type="file" id="excelFileInputHeader" accept=".xlsx, .xls, .csv" style="display: none;">
+                        <!-- Total Patients Metric Card -->
+                        <div class="header-total-card">
+                            <div class="total-card-icon">👥</div>
+                            <div class="total-card-info">
+                                <span class="total-card-label">ผู้ป่วยทั้งหมด (Total Patients)</span>
+                                <div class="total-card-number">
+                                    <span id="totalPatients" class="number">0</span>
+                                    <span class="unit">คน</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons Group -->
+                        <div class="header-buttons-group">
+                            <label for="excelFileInputHeader" class="btn-import-header" title="นำเข้าข้อมูลจากไฟล์ Excel (.xlsx, .csv)">
+                                <span class="icon">📥</span> นำเข้าข้อมูล Excel
+                            </label>
+                            <input type="file" id="excelFileInputHeader" accept=".xlsx, .xls, .csv" style="display: none;">
+                            
+                            <button id="btnOpenSheetSettingsHeader" class="btn-settings-header" title="ตั้งค่าเชื่อมต่อ Google Sheet สำหรับบันทึกข้อมูล">
+                                <span class="icon">⚙️</span> ตั้งค่าเชื่อมต่อ Sheet
+                            </button>
+                        </div>
                     </div>
                 </div>
             </header>
-
-            <section class="summary-cards">
-                <div class="card summary-card">
-                    <div class="card-icon blue">🏥</div>
-                    <div class="card-info">
-                        <h3>Total Patients</h3>
-                        <p id="totalPatients" class="number">0</p>
-                    </div>
-                </div>
-                <div class="card summary-card">
-                    <div class="card-icon green">📍</div>
-                    <div class="card-info">
-                        <h3>With Comma Address</h3>
-                        <p id="commaAddrCount" class="number">0</p>
-                    </div>
-                </div>
-                <div class="card summary-card">
-                    <div class="card-icon red">⚠️</div>
-                    <div class="card-info">
-                        <h3>High Risk Group</h3>
-                        <p id="highRiskCount" class="number">0</p>
-                    </div>
-                </div>
-                <div class="card summary-card">
-                    <div class="card-icon purple">🌍</div>
-                    <div class="card-info">
-                        <h3>Top Nationality</h3>
-                        <p id="topNation" class="number">-</p>
-                    </div>
-                </div>
-            </section>
+            
+            <div id="filterResultBadge" class="filter-result-badge" style="display: none;"></div>
 
             <section class="charts-section">
                 <div class="card chart-card">
@@ -137,13 +175,14 @@
                 </div>
                 <div class="card chart-card">
                     <h3>รายละเอียดแผนก OPD / IPD</h3>
-                    <div class="opd-summary-table-container">
+                    <div class="opd-summary-table-container scrollable-table-container">
                         <table class="opd-summary-table">
                             <thead>
                                 <tr>
                                     <th style="width: 70px; text-align: center;">ลำดับ</th>
                                     <th>ชื่อแผนก OPD / IPD</th>
                                     <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
+                                    <th style="text-align: right;">สัดส่วน (%)</th>
                                 </tr>
                             </thead>
                             <tbody id="opdDetailTableBody">
@@ -163,13 +202,14 @@
                 </div>
                 <div class="card chart-card">
                     <h3>รายละเอียดกลุ่มเสี่ยงหลัก (Risk Group)</h3>
-                    <div class="opd-summary-table-container">
+                    <div class="opd-summary-table-container scrollable-table-container">
                         <table class="opd-summary-table">
                             <thead>
                                 <tr>
                                     <th style="width: 70px; text-align: center;">ลำดับ</th>
                                     <th>กลุ่มเสี่ยงหลัก (Risk Group)</th>
                                     <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
+                                    <th style="text-align: right;">สัดส่วน (%)</th>
                                 </tr>
                             </thead>
                             <tbody id="riskGroupDetailTableBody">
@@ -190,6 +230,7 @@
                                     <th style="width: 70px; text-align: center;">ลำดับ</th>
                                     <th>ประเภท/ปัจจัยเสี่ยง (Risk Type)</th>
                                     <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
+                                    <th style="text-align: right;">สัดส่วน (%)</th>
                                 </tr>
                             </thead>
                             <tbody id="riskTypeDetailTableBody">
@@ -222,32 +263,47 @@
                         </table>
                     </div>
                 </div>
-            </section>
 
-            <section class="table-section card">
-                <div class="table-header">
-                    <h3>Detailed Patient Records</h3>
-                    <div class="table-actions">
-                        <input type="text" id="searchInput" placeholder="Search records..." class="search-input">
+                <div class="card chart-card">
+                    <h3>📊 ผลการรักษา (RX_RESULT)</h3>
+                    <div class="chart-container">
+                        <canvas id="rxResultChart"></canvas>
                     </div>
                 </div>
-                <div class="table-responsive">
-                    <table id="dataTable">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Date</th>
-                                <th>Address</th>
-                                <th>OPD</th>
-                                <th>Nationality</th>
-                                <th>Risk Group</th>
-                                <th>Risk Type</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody">
-                            <!-- Data will be populated here -->
-                        </tbody>
-                    </table>
+
+                <div class="card chart-card">
+                    <h3>🩸 ผลตรวจ B24 / HIV (B24_RESULT)</h3>
+                    <div class="chart-container">
+                        <canvas id="b24ResultChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card chart-card">
+                    <h3>🔬 ผลสรุปทางห้องปฏิบัติการ (SUMMARY)</h3>
+                    <div class="chart-container">
+                        <canvas id="summaryChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card chart-card">
+                    <h3>📋 ประเภทการขึ้นทะเบียน (REGIS_TYPE)</h3>
+                    <div class="chart-container">
+                        <canvas id="regisTypeChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card chart-card">
+                    <h3>🫁 การจำแนกประเภทวัณโรค (CLASSIFY)</h3>
+                    <div class="chart-container">
+                        <canvas id="classifyChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card chart-card">
+                    <h3>💼 อาชีพของผู้ป่วย (OCC_NAME_TH)</h3>
+                    <div class="chart-container">
+                        <canvas id="occNameChart"></canvas>
+                    </div>
                 </div>
             </section>
         </main>
@@ -307,6 +363,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=18"></script>
+    <script src="script.js?v=29"></script>
 </body>
 </html>

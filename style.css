@@ -36,13 +36,13 @@ body {
 
 /* Sidebar & Filters */
 .sidebar {
-    width: 280px;
+    width: 330px;
     background-color: var(--surface-color);
     border-right: 1px solid var(--border-color);
-    padding: 24px;
+    padding: 20px 16px;
     display: flex;
     flex-direction: column;
-    gap: 32px;
+    gap: 24px;
     position: sticky;
     top: 0;
     height: 100vh;
@@ -117,6 +117,34 @@ body {
     background-color: var(--primary-hover);
 }
 
+.btn-process {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14.5px;
+    font-weight: 600;
+    padding: 12px;
+    width: 100%;
+    cursor: pointer;
+    border-radius: 8px;
+    border: none;
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.btn-process:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+}
+
+.btn-process:active {
+    transform: translateY(0);
+}
+
 .btn-secondary {
     background-color: transparent;
     color: var(--text-muted);
@@ -128,6 +156,26 @@ body {
     color: var(--text-main);
 }
 
+.filter-result-badge {
+    background: rgba(37, 99, 235, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    color: #60a5fa;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 /* Main Content */
 .main-content {
     flex: 1;
@@ -135,19 +183,138 @@ body {
     overflow-y: auto;
 }
 
-header {
-    margin-bottom: 32px;
+/* Dashboard Header */
+.dashboard-header {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.85));
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 22px 28px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(8px);
 }
 
-header h1 {
-    font-size: 28px;
-    font-weight: 700;
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.header-title-box {
+    flex: 1;
+    min-width: 320px;
+}
+
+.hospital-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(37, 99, 235, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #38bdf8;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
     margin-bottom: 8px;
 }
 
-.subtitle {
+.hospital-badge .hospital-icon {
+    font-size: 14px;
+}
+
+.header-title-box h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    line-height: 1.35;
+    color: #f8fafc;
+    letter-spacing: -0.3px;
+}
+
+.header-title-box .subtitle {
     color: var(--text-muted);
-    font-size: 15px;
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+/* Header Total Patients Card */
+.header-total-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(30, 41, 59, 0.9));
+    border: 1px solid rgba(59, 130, 246, 0.45);
+    border-radius: 12px;
+    padding: 12px 20px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.header-total-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(59, 130, 246, 0.7);
+}
+
+.total-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: rgba(37, 99, 235, 0.25);
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.total-card-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.total-card-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.total-card-number {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+
+.total-card-number .number {
+    font-size: 26px;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.1;
+    font-feature-settings: "tnum";
+}
+
+.total-card-number .unit {
+    font-size: 13px;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.header-buttons-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 /* Cards */
@@ -163,14 +330,6 @@ header h1 {
 .card:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
-}
-
-/* Summary Cards */
-.summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 24px;
-    margin-bottom: 32px;
 }
 
 .summary-card {
@@ -342,15 +501,15 @@ tbody tr:hover {
     color: var(--text-muted);
     font-size: 13px;
     font-weight: 600;
-    padding: 12px 16px;
+    padding: 10px 16px;
     text-transform: none;
     letter-spacing: 0;
     border-bottom: 1px solid var(--border-color);
 }
 
 .opd-summary-table td {
-    padding: 12px 16px;
-    font-size: 14px;
+    padding: 10px 16px;
+    font-size: 13.5px;
     border-bottom: 1px solid rgba(51, 65, 85, 0.5);
     color: var(--text-main);
 }
@@ -360,6 +519,7 @@ tbody tr:hover {
     border-top: 1px solid var(--border-color);
     border-bottom: none;
     font-weight: 700;
+    padding: 10px 16px;
 }
 
 .opd-dot {
@@ -375,9 +535,9 @@ tbody tr:hover {
 .opd-dot.purple { background-color: #8b5cf6; box-shadow: 0 0 8px rgba(139, 92, 246, 0.4); }
 .opd-dot.grey { background-color: #f8fafc; box-shadow: 0 0 8px rgba(248, 250, 252, 0.4); }
 
-/* Scrollable Table Container (Shows ~10 records max with sticky header) */
+/* Scrollable Table Container (Shows 5 records initially with sticky header & footer) */
 .scrollable-table-container {
-    max-height: 440px;
+    max-height: 280px;
     overflow-y: auto;
 }
 
@@ -678,4 +838,271 @@ tbody tr:hover {
     background: linear-gradient(135deg, #2563eb, #1d4ed8);
     transform: translateY(-1px);
 }
+
+/* ==========================================================================
+   Visual Calendar & Flatpickr Custom Theme Styles
+   ========================================================================== */
+.date-filter-group {
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px;
+    gap: 10px;
+}
+
+.filter-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.filter-header-row label {
+    font-weight: 600;
+    color: #e2e8f0;
+    font-size: 13px;
+}
+
+.btn-toggle-view {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid var(--border-color);
+    color: #94a3b8;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.btn-toggle-view:hover {
+    background: rgba(59, 130, 246, 0.2);
+    color: #38bdf8;
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+/* Quick Presets Buttons */
+.date-quick-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.preset-chip {
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid var(--border-color);
+    color: #94a3b8;
+    padding: 3px 9px;
+    border-radius: 14px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.preset-chip:hover {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.preset-chip.active {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #3b82f6;
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+}
+
+/* Visual Inline Calendar Container */
+.calendar-inline-wrapper {
+    width: 100%;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    overflow: hidden;
+}
+
+.calendar-inline-wrapper.collapsed {
+    display: none;
+}
+
+/* Flatpickr Custom Dark Theme */
+.flatpickr-calendar.inline {
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #0f172a !important;
+    border: 1px solid rgba(51, 65, 85, 0.8) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+    margin: 2px 0 6px 0 !important;
+    box-sizing: border-box !important;
+}
+
+.flatpickr-months {
+    background: transparent !important;
+    padding: 6px 4px 2px !important;
+    position: relative;
+}
+
+.flatpickr-months .flatpickr-prev-month, 
+.flatpickr-months .flatpickr-next-month {
+    color: #94a3b8 !important;
+    fill: #94a3b8 !important;
+    padding: 6px !important;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover svg, 
+.flatpickr-months .flatpickr-next-month:hover svg {
+    fill: #38bdf8 !important;
+}
+
+.flatpickr-current-month {
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    color: #f1f5f9 !important;
+    padding: 2px 0 0 0 !important;
+}
+
+.flatpickr-current-month .flatpickr-monthDropdown-months {
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 6px !important;
+    padding: 2px 4px !important;
+    font-weight: 600 !important;
+    font-size: 12.5px !important;
+}
+
+.flatpickr-current-month input.cur-year {
+    color: #38bdf8 !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+}
+
+.flatpickr-weekdays {
+    background: rgba(30, 41, 59, 0.6) !important;
+    margin-top: 4px !important;
+    border-radius: 6px !important;
+    height: 24px !important;
+}
+
+span.flatpickr-weekday {
+    color: #94a3b8 !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    line-height: 24px !important;
+}
+
+.flatpickr-days {
+    width: 100% !important;
+}
+
+.dayContainer {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    justify-content: space-around !important;
+}
+
+.flatpickr-day {
+    color: #cbd5e1 !important;
+    border-radius: 6px !important;
+    height: 28px !important;
+    line-height: 28px !important;
+    max-width: 32px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    border: 1px solid transparent !important;
+    transition: all 0.15s ease !important;
+}
+
+.flatpickr-day:hover {
+    background: rgba(59, 130, 246, 0.25) !important;
+    border-color: rgba(59, 130, 246, 0.5) !important;
+    color: #fff !important;
+}
+
+.flatpickr-day.selected, 
+.flatpickr-day.startRange, 
+.flatpickr-day.endRange {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    border-color: #3b82f6 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4) !important;
+}
+
+.flatpickr-day.inRange {
+    background: rgba(37, 99, 235, 0.22) !important;
+    border-color: transparent !important;
+    color: #93c5fd !important;
+    border-radius: 0 !important;
+}
+
+.flatpickr-day.today {
+    border-color: #38bdf8 !important;
+    color: #38bdf8 !important;
+}
+
+.flatpickr-day.flatpickr-disabled, 
+.flatpickr-day.flatpickr-disabled:hover {
+    color: #475569 !important;
+    opacity: 0.4;
+}
+
+/* Date range input boxes */
+.date-range-inputs {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.date-input-col {
+    flex: 1;
+}
+
+.date-input-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 2px;
+}
+
+.input-with-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.flatpickr-input-custom {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 26px 8px 10px !important;
+    font-size: 12px !important;
+    cursor: pointer;
+    background-color: #0f172a;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-main);
+}
+
+.flatpickr-input-custom:focus {
+    border-color: #3b82f6;
+    outline: none;
+}
+
+.input-calendar-icon {
+    position: absolute;
+    right: 8px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.date-filter-info {
+    font-size: 11px;
+    color: #94a3b8;
+    line-height: 1.4;
+    padding-top: 2px;
+}
+
 

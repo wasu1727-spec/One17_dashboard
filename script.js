@@ -34,7 +34,7 @@ const generateMockData = (count) => {
 // ==========================================
 // GOOGLE SHEETS INTEGRATION
 // ==========================================
-const SHEET_ID = '1m6jy95C82D4pWs2MaanSmnxLvPlJC7tJ';
+const SHEET_ID = '1QuI0g0i-91l8KxsBO-3a7Q_1pg6rnq7EMR8qIC7XwTQ';
 const SHEET_GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:parseGoogleSheetJSONP`;
 
 // Google Apps Script Web App URL สำหรับบันทึกข้อมูลย้อนกลับเข้า Google Sheet
@@ -105,6 +105,35 @@ function extractOpdFromAddr(rawAddr) {
     return 'ไม่ระบุ OPD';
 }
 
+// Utility function to format dates to YYYY-MM-DD
+function formatDateValue(val) {
+    if (!val && val !== 0) return '';
+    val = String(val).trim();
+    // Google Visualization Date(yyyy, m, d)
+    let gMatch = val.match(/Date\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (gMatch) {
+        let y = gMatch[1];
+        let m = String(parseInt(gMatch[2], 10) + 1).padStart(2, '0');
+        let d = String(parseInt(gMatch[3], 10)).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+    // 8 digits: YYYYMMDD e.g. 20251001
+    if (/^\d{8}$/.test(val)) {
+        return `${val.substring(0,4)}-${val.substring(4,6)}-${val.substring(6,8)}`;
+    }
+    // YYYY-MM-DD or YYYY/MM/DD
+    if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(val)) {
+        let parts = val.split(/[-/]/);
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].substring(0,2).padStart(2, '0')}`;
+    }
+    // DD/MM/YYYY or DD-MM-YYYY
+    if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}/.test(val)) {
+        let parts = val.split(/[-/]/);
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+    return val;
+}
+
 // Callback Function for Google Sheet JSONP
 window.parseGoogleSheetJSONP = function(response) {
     try {
@@ -136,10 +165,10 @@ window.parseGoogleSheetJSONP = function(response) {
             if (idx === -1 || !row.c[idx]) return '';
             const cell = row.c[idx];
             if (cell.v === null || cell.v === undefined) return '';
-            let val = String(cell.v).trim();
-            // Format YYYYMMDD date format to YYYY-MM-DD
-            if (colName.toLowerCase().includes('date') && val.length === 8 && /^\d{8}$/.test(val)) {
-                val = `${val.substring(0,4)}-${val.substring(4,6)}-${val.substring(6,8)}`;
+            let val = (cell.f !== undefined && cell.f !== null) ? String(cell.f).trim() : String(cell.v).trim();
+            // Format date columns to YYYY-MM-DD
+            if (colName.toLowerCase().includes('date') || colName.toLowerCase().includes('regis')) {
+                val = formatDateValue(val);
             }
             return val;
         };
@@ -147,7 +176,8 @@ window.parseGoogleSheetJSONP = function(response) {
         rawData = rows.map((row, index) => {
             let hn = getVal(row, 'DT07_HN') || getVal(row, 'HN') || getVal(row, 'DT07_NHSO_ID') || getVal(row, 'No') || getVal(row, 'ID') || `PT-${1000 + index + 1}`;
             let name = getVal(row, 'PNAME') || '';
-            let date = getVal(row, 'DT07_START_DATE') || getVal(row, 'DT07_DATE_REGIS') || getVal(row, 'Date') || '-';
+            // กรองข้อมูลรายงานทุกตัวจาก DATE_REGIS
+            let date = getVal(row, 'DATE_REGIS') || getVal(row, 'DT07_DATE_REGIS') || getVal(row, 'DT07_START_DATE') || getVal(row, 'START_DATE') || getVal(row, 'Date') || '-';
             
             let addr = getVal(row, 'ADDR') || getVal(row, 'Address');
             let mu = getVal(row, 'MU');
@@ -170,6 +200,13 @@ window.parseGoogleSheetJSONP = function(response) {
 
             let ampArea = (ampRaw === 'เมืองเชียงราย' || ampRaw.includes('เมืองเชียงราย')) ? 'ในเขตอำเภอเมืองเชียงราย' : 'นอกเขต';
 
+            let rx_result = getVal(row, 'RX_RESULT') || '-';
+            let b24_result = getVal(row, 'B24_RESULT') || '-';
+            let summary = getVal(row, 'SUMMARY') || '-';
+            let regis_type = getVal(row, 'REGIS_TYPE') || '-';
+            let classify = getVal(row, 'CLASSIFY') || '-';
+            let occ_name_th = getVal(row, 'OCC_NAME_TH') || getVal(row, 'OCC_NAME') || getVal(row, 'OCCUPATION') || '-';
+
             return {
                 id: hn,
                 name: name,
@@ -181,7 +218,13 @@ window.parseGoogleSheetJSONP = function(response) {
                 ampRaw: ampRaw,
                 nation: nation,
                 risk_group: risk_group,
-                risk_type: risk_type
+                risk_type: risk_type,
+                rx_result: rx_result,
+                b24_result: b24_result,
+                summary: summary,
+                regis_type: regis_type,
+                classify: classify,
+                occ_name_th: occ_name_th
             };
         });
 
@@ -214,13 +257,32 @@ function initializeDashboard() {
         initFilters();
         updateDashboard();
 
-        document.getElementById('applyFilters').addEventListener('click', applyFilters);
-        document.getElementById('resetFilters').addEventListener('click', resetFilters);
-        document.getElementById('searchInput').addEventListener('input', applySearch);
+        const btnApply = document.getElementById('applyFilters');
+        if (btnApply) btnApply.addEventListener('click', applyFilters);
+
+        const btnReset = document.getElementById('resetFilters');
+        if (btnReset) btnReset.addEventListener('click', resetFilters);
+
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) searchInput.addEventListener('input', applySearch);
+
+        // Allow pressing Enter in date inputs to trigger "ประมวลรายงาน"
+        const dateStart = document.getElementById('dateStart');
+        const dateEnd = document.getElementById('dateEnd');
+        if (dateStart) {
+            dateStart.addEventListener('keyup', (e) => { if (e.key === 'Enter') applyFilters(); });
+        }
+        if (dateEnd) {
+            dateEnd.addEventListener('keyup', (e) => { if (e.key === 'Enter') applyFilters(); });
+        }
     } catch (err) {
         showError("เกิดข้อผิดพลาดในการเตรียมแดชบอร์ด (initializeDashboard): " + err.message);
     }
 }
+
+let inlineFlatpickrInstance = null;
+let startFlatpickrInstance = null;
+let endFlatpickrInstance = null;
 
 function initFilters() {
     const opds = [...new Set(rawData.map(d => d.opd))];
@@ -230,6 +292,207 @@ function initFilters() {
     populateSelect('opdFilter', opds);
     populateSelect('nationFilter', nations);
     populateSelect('riskGroupFilter', riskGroups);
+
+    // กำหนดช่วงวันที่เริ่มต้นและสิ้นสุดของ DATE_REGIS ที่พบในระบบ
+    const validDates = rawData
+        .map(d => d.date)
+        .filter(dt => dt && dt !== '-' && /^\d{4}-\d{2}-\d{2}$/.test(dt))
+        .sort();
+
+    const minDate = validDates.length > 0 ? validDates[0] : '';
+    const maxDate = validDates.length > 0 ? validDates[validDates.length - 1] : '';
+
+    const infoEl = document.getElementById('dateFilterInfo');
+    if (infoEl && minDate && maxDate) {
+        infoEl.innerHTML = `📅 ช่วงข้อมูล DATE_REGIS ในระบบ: <br><strong>${minDate}</strong> ถึง <strong>${maxDate}</strong>`;
+    }
+
+    // เริ่มต้นระบบปฏิทิน (Inline Calendar & Pop-up Datepickers)
+    initCalendarFilter(minDate, maxDate);
+}
+
+function initCalendarFilter(minDate, maxDate) {
+    const calendarInlineEl = document.getElementById('calendarInline');
+    const dateStartEl = document.getElementById('dateStart');
+    const dateEndEl = document.getElementById('dateEnd');
+    const wrapperEl = document.getElementById('calendarInlineWrapper');
+    const btnToggle = document.getElementById('btnToggleCalendarView');
+    const toggleText = document.getElementById('toggleCalendarText');
+    const toggleIcon = document.getElementById('toggleCalendarIcon');
+
+    // ปุ่มสลับแสดง / ย่อปฏิทิน
+    if (btnToggle && wrapperEl) {
+        btnToggle.addEventListener('click', () => {
+            const isHidden = wrapperEl.classList.toggle('collapsed');
+            if (toggleText) toggleText.textContent = isHidden ? 'แสดงปฏิทิน' : 'ย่อปฏิทิน';
+            if (toggleIcon) toggleIcon.textContent = isHidden ? '📅' : '📆';
+        });
+    }
+
+    // ปุ่มลัดเลือกช่วงเวลา (Quick Presets)
+    const presetChips = document.querySelectorAll('.preset-chip');
+    presetChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            presetChips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+
+            const preset = chip.getAttribute('data-preset');
+            applyDatePreset(preset, minDate, maxDate);
+        });
+    });
+
+    const thaiLocale = {
+        firstDayOfWeek: 0,
+        weekdays: {
+            shorthand: ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"],
+            longhand: ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"]
+        },
+        months: {
+            shorthand: ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."],
+            longhand: ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
+        },
+        rangeSeparator: " ถึง "
+    };
+
+    if (typeof flatpickr !== 'undefined') {
+        try {
+            // 1. ปฏิทินแสดงบนหน้าจอ (Visual Inline Calendar)
+            if (calendarInlineEl) {
+                inlineFlatpickrInstance = flatpickr(calendarInlineEl, {
+                    inline: true,
+                    mode: "range",
+                    dateFormat: "Y-m-d",
+                    minDate: minDate || undefined,
+                    maxDate: maxDate || undefined,
+                    defaultDate: [minDate || "2025-10-01", maxDate || "2026-10-17"],
+                    locale: thaiLocale,
+                    onChange: function(selectedDates, dateStr, instance) {
+                        presetChips.forEach(c => c.classList.remove('active'));
+
+                        if (selectedDates.length === 2) {
+                            const d1 = instance.formatDate(selectedDates[0], "Y-m-d");
+                            const d2 = instance.formatDate(selectedDates[1], "Y-m-d");
+                            if (dateStartEl) dateStartEl.value = d1;
+                            if (dateEndEl) dateEndEl.value = d2;
+                            if (startFlatpickrInstance) startFlatpickrInstance.setDate(d1, false);
+                            if (endFlatpickrInstance) endFlatpickrInstance.setDate(d2, false);
+                        } else if (selectedDates.length === 1) {
+                            const d1 = instance.formatDate(selectedDates[0], "Y-m-d");
+                            if (dateStartEl) dateStartEl.value = d1;
+                            if (dateEndEl) dateEndEl.value = '';
+                            if (startFlatpickrInstance) startFlatpickrInstance.setDate(d1, false);
+                        }
+                    }
+                });
+            }
+
+            // 2. ปฏิทินแบบ Pop-up เมื่อคลิกช่อง "ตั้งแต่วันที่"
+            if (dateStartEl) {
+                startFlatpickrInstance = flatpickr(dateStartEl, {
+                    dateFormat: "Y-m-d",
+                    minDate: minDate || undefined,
+                    maxDate: maxDate || undefined,
+                    defaultDate: minDate || "2025-10-01",
+                    locale: thaiLocale,
+                    onChange: function(selectedDates, dateStr) {
+                        presetChips.forEach(c => c.classList.remove('active'));
+                        if (inlineFlatpickrInstance && dateStr) {
+                            const currentEnd = dateEndEl ? dateEndEl.value : '';
+                            if (currentEnd) {
+                                inlineFlatpickrInstance.setDate([dateStr, currentEnd], false);
+                            } else {
+                                inlineFlatpickrInstance.setDate([dateStr], false);
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 3. ปฏิทินแบบ Pop-up เมื่อคลิกช่อง "ถึงวันที่"
+            if (dateEndEl) {
+                endFlatpickrInstance = flatpickr(dateEndEl, {
+                    dateFormat: "Y-m-d",
+                    minDate: minDate || undefined,
+                    maxDate: maxDate || undefined,
+                    defaultDate: maxDate || "2026-10-17",
+                    locale: thaiLocale,
+                    onChange: function(selectedDates, dateStr) {
+                        presetChips.forEach(c => c.classList.remove('active'));
+                        if (inlineFlatpickrInstance && dateStr) {
+                            const currentStart = dateStartEl ? dateStartEl.value : '';
+                            if (currentStart) {
+                                inlineFlatpickrInstance.setDate([currentStart, dateStr], false);
+                            }
+                        }
+                    }
+                });
+            }
+
+            // กำหนดค่าเริ่มต้น
+            if (dateStartEl) dateStartEl.value = minDate || '2025-10-01';
+            if (dateEndEl) dateEndEl.value = maxDate || '2026-10-17';
+            if (inlineFlatpickrInstance) {
+                inlineFlatpickrInstance.setDate([minDate || '2025-10-01', maxDate || '2026-10-17'], false);
+            }
+        } catch (err) {
+            console.error("Flatpickr Error:", err);
+            initFallbackCalendar(minDate, maxDate);
+        }
+    } else {
+        initFallbackCalendar(minDate, maxDate);
+    }
+}
+
+function applyDatePreset(preset, minDate, maxDate) {
+    const dateStartEl = document.getElementById('dateStart');
+    const dateEndEl = document.getElementById('dateEnd');
+    let start = '';
+    let end = '';
+
+    if (preset === 'all') {
+        start = minDate || '2025-10-01';
+        end = maxDate || '2026-10-17';
+    } else if (preset === 'oct25') {
+        start = '2025-10-01';
+        end = '2025-10-31';
+    } else if (preset === 'month') {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+        start = `${y}-${m}-01`;
+        end = `${y}-${m}-${String(lastDay).padStart(2, '0')}`;
+    } else if (preset === 'days30') {
+        const endDt = maxDate ? new Date(maxDate) : new Date();
+        const startDt = new Date(endDt.getTime() - (29 * 24 * 60 * 60 * 1000));
+        start = startDt.toISOString().split('T')[0];
+        end = endDt.toISOString().split('T')[0];
+    }
+
+    if (dateStartEl) dateStartEl.value = start;
+    if (dateEndEl) dateEndEl.value = end;
+
+    if (inlineFlatpickrInstance && start && end) {
+        inlineFlatpickrInstance.setDate([start, end], false);
+        inlineFlatpickrInstance.jumpToDate(start);
+    }
+    if (startFlatpickrInstance && start) startFlatpickrInstance.setDate(start, false);
+    if (endFlatpickrInstance && end) endFlatpickrInstance.setDate(end, false);
+}
+
+function initFallbackCalendar(minDate, maxDate) {
+    const dateStartEl = document.getElementById('dateStart');
+    const dateEndEl = document.getElementById('dateEnd');
+    if (dateStartEl) {
+        dateStartEl.type = 'date';
+        dateStartEl.value = minDate || '2025-10-01';
+        dateStartEl.addEventListener('click', function() { if (this.showPicker) this.showPicker(); });
+    }
+    if (dateEndEl) {
+        dateEndEl.type = 'date';
+        dateEndEl.value = maxDate || '2026-10-17';
+        dateEndEl.addEventListener('click', function() { if (this.showPicker) this.showPicker(); });
+    }
 }
 
 function populateSelect(id, options) {
@@ -248,38 +511,95 @@ function populateSelect(id, options) {
 }
 
 function applyFilters() {
-    const start = document.getElementById('dateStart').value;
-    const end = document.getElementById('dateEnd').value;
-    const opd = document.getElementById('opdFilter').value;
-    const nation = document.getElementById('nationFilter').value;
-    const risk = document.getElementById('riskGroupFilter').value;
+    const start = document.getElementById('dateStart') ? document.getElementById('dateStart').value : '';
+    const end = document.getElementById('dateEnd') ? document.getElementById('dateEnd').value : '';
+    const opd = document.getElementById('opdFilter') ? document.getElementById('opdFilter').value : 'all';
+    const nation = document.getElementById('nationFilter') ? document.getElementById('nationFilter').value : 'all';
+    const risk = document.getElementById('riskGroupFilter') ? document.getElementById('riskGroupFilter').value : 'all';
 
+    // กรองข้อมูลรายงานทุกตัวจาก DATE_REGIS (d.date)
     filteredData = rawData.filter(d => {
         let match = true;
-        if (start && d.date < start) match = false;
-        if (end && d.date > end) match = false;
+        if (start && (!d.date || d.date === '-' || d.date < start)) match = false;
+        if (end && (!d.date || d.date === '-' || d.date > end)) match = false;
         if (opd !== 'all' && d.opd !== opd) match = false;
         if (nation !== 'all' && d.nation !== nation) match = false;
         if (risk !== 'all' && d.risk_group !== risk) match = false;
         return match;
     });
 
+    // แสดงสถานะการประมวลผลรายงาน
+    const statusBadge = document.getElementById('filterResultBadge');
+    if (statusBadge) {
+        if (start || end || opd !== 'all' || nation !== 'all' || risk !== 'all') {
+            statusBadge.style.display = 'flex';
+            let dateText = '';
+            if (start && end) dateText = `ช่วงวันที่: <strong>${start}</strong> ถึง <strong>${end}</strong>`;
+            else if (start) dateText = `ตั้งแต่วันที่: <strong>${start}</strong> เป็นต้นไป`;
+            else if (end) dateText = `ถึงวันที่: <strong>${end}</strong>`;
+            
+            statusBadge.innerHTML = `
+                <div>
+                    <strong>📊 ผลการประมวลรายงาน:</strong> กรองข้อมูลจาก <code>DATE_REGIS</code> พบ <strong>${filteredData.length.toLocaleString()}</strong> คน (จากทั้งหมด ${rawData.length.toLocaleString()} คน) ${dateText ? ` | ${dateText}` : ''}
+                </div>
+                <button id="btnClearFilterBadge" style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); color: #fff; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">🔄 ล้างตัวกรองทั้งหมด</button>
+            `;
+            const btnClearBadge = document.getElementById('btnClearFilterBadge');
+            if (btnClearBadge) btnClearBadge.addEventListener('click', resetFilters);
+        } else {
+            statusBadge.style.display = 'none';
+        }
+    }
+
     applySearch(); 
 }
 
 function resetFilters() {
-    document.getElementById('dateStart').value = '';
-    document.getElementById('dateEnd').value = '';
-    document.getElementById('opdFilter').value = 'all';
-    document.getElementById('nationFilter').value = 'all';
-    document.getElementById('riskGroupFilter').value = 'all';
-    document.getElementById('searchInput').value = '';
+    const start = document.getElementById('dateStart');
+    if (start) start.value = '';
+    const end = document.getElementById('dateEnd');
+    if (end) end.value = '';
+    const opd = document.getElementById('opdFilter');
+    if (opd) opd.value = 'all';
+    const nation = document.getElementById('nationFilter');
+    if (nation) nation.value = 'all';
+    const risk = document.getElementById('riskGroupFilter');
+    if (risk) risk.value = 'all';
+    const search = document.getElementById('searchInput');
+    if (search) search.value = '';
+
+    const statusBadge = document.getElementById('filterResultBadge');
+    if (statusBadge) {
+        statusBadge.style.display = 'none';
+    }
+
+    // รีเซ็ตปฏิทินและปุ่มลัด
+    const validDates = rawData
+        .map(d => d.date)
+        .filter(dt => dt && dt !== '-' && /^\d{4}-\d{2}-\d{2}$/.test(dt))
+        .sort();
+    const minDate = validDates.length > 0 ? validDates[0] : '';
+    const maxDate = validDates.length > 0 ? validDates[validDates.length - 1] : '';
+
+    if (inlineFlatpickrInstance && minDate && maxDate) {
+        inlineFlatpickrInstance.setDate([minDate, maxDate], false);
+        inlineFlatpickrInstance.jumpToDate(minDate);
+    }
+    if (startFlatpickrInstance && minDate) startFlatpickrInstance.setDate(minDate, false);
+    if (endFlatpickrInstance && maxDate) endFlatpickrInstance.setDate(maxDate, false);
+
+    document.querySelectorAll('.preset-chip').forEach(c => {
+        if (c.getAttribute('data-preset') === 'all') c.classList.add('active');
+        else c.classList.remove('active');
+    });
+
     filteredData = [...rawData];
     updateDashboard();
 }
 
 function applySearch() {
-    const term = document.getElementById('searchInput').value.toLowerCase();
+    const searchInput = document.getElementById('searchInput');
+    const term = searchInput ? searchInput.value.toLowerCase().trim() : '';
     if (term) {
         filteredData = filteredData.filter(d => 
             d.id.toLowerCase().includes(term) ||
@@ -375,7 +695,7 @@ function updateOpdDetailTable() {
 
     const specificDepts = filteredData.filter(d => d.opd && d.opd !== 'ไม่ระบุ OPD');
     if (specificDepts.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 20px;">ไม่พบข้อมูลแผนก OPD/IPD</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">ไม่พบข้อมูลแผนก OPD/IPD</td></tr>';
         if (tfoot) tfoot.innerHTML = '';
         return;
     }
@@ -386,13 +706,13 @@ function updateOpdDetailTable() {
     });
 
     const sortedDepts = Object.keys(deptCounts).sort((a, b) => deptCounts[b] - deptCounts[a]);
+    const grandTotal = specificDepts.length;
 
     let html = '';
-    let grandTotal = 0;
 
     sortedDepts.forEach((dept, index) => {
         const count = deptCounts[dept];
-        grandTotal += count;
+        const pct = grandTotal > 0 ? ((count / grandTotal) * 100).toFixed(2) : '0.00';
         const dotClass = dept.startsWith('IPD') ? 'orange' : 'green';
 
         html += `
@@ -400,6 +720,7 @@ function updateOpdDetailTable() {
                 <td style="text-align: center; color: var(--text-muted); font-weight: 500;">${index + 1}</td>
                 <td><span class="opd-dot ${dotClass}"></span> <strong>${dept}</strong></td>
                 <td style="text-align: right; font-weight: 600;">${count.toLocaleString()}</td>
+                <td style="text-align: right; font-weight: 600; color: #10b981;">${pct}%</td>
             </tr>
         `;
     });
@@ -412,6 +733,7 @@ function updateOpdDetailTable() {
                 <td style="text-align: center;"><strong>รวม</strong></td>
                 <td><strong>รวมกลุ่ม OPD / IPD ทั้งหมด</strong></td>
                 <td style="text-align: right; font-weight: 700; color: #10b981;">${grandTotal.toLocaleString()} คน</td>
+                <td style="text-align: right; font-weight: 700; color: #10b981;">100.0%</td>
             </tr>
         `;
     }
@@ -423,7 +745,7 @@ function updateRiskGroupDetailTable() {
     if (!tbody) return;
 
     if (filteredData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 20px;">ไม่พบข้อมูลกลุ่มเสี่ยง</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">ไม่พบข้อมูลกลุ่มเสี่ยง</td></tr>';
         if (tfoot) tfoot.innerHTML = '';
         return;
     }
@@ -435,13 +757,13 @@ function updateRiskGroupDetailTable() {
     });
 
     const sortedGroups = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    const grandTotal = filteredData.length;
 
     let html = '';
-    let grandTotal = 0;
 
     sortedGroups.forEach((group, index) => {
         const count = counts[group];
-        grandTotal += count;
+        const pct = grandTotal > 0 ? ((count / grandTotal) * 100).toFixed(2) : '0.00';
 
         let dotClass = 'grey';
         if (group.includes('เสี่ยง') || group.includes('High')) dotClass = 'orange';
@@ -452,6 +774,7 @@ function updateRiskGroupDetailTable() {
                 <td style="text-align: center; color: var(--text-muted); font-weight: 500;">${index + 1}</td>
                 <td><span class="opd-dot ${dotClass}"></span> <strong>${group}</strong></td>
                 <td style="text-align: right; font-weight: 600;">${count.toLocaleString()}</td>
+                <td style="text-align: right; font-weight: 600; color: #3b82f6;">${pct}%</td>
             </tr>
         `;
     });
@@ -464,6 +787,7 @@ function updateRiskGroupDetailTable() {
                 <td style="text-align: center;"><strong>รวม</strong></td>
                 <td><strong>รวมกลุ่มเสี่ยงทั้งหมด</strong></td>
                 <td style="text-align: right; font-weight: 700; color: #3b82f6;">${grandTotal.toLocaleString()} คน</td>
+                <td style="text-align: right; font-weight: 700; color: #3b82f6;">100.0%</td>
             </tr>
         `;
     }
@@ -475,7 +799,7 @@ function updateRiskTypeDetailTable() {
     if (!tbody) return;
 
     if (filteredData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 20px;">ไม่พบข้อมูลปัจจัย/ประเภทความเสี่ยง</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">ไม่พบข้อมูลปัจจัย/ประเภทความเสี่ยง</td></tr>';
         if (tfoot) tfoot.innerHTML = '';
         return;
     }
@@ -487,13 +811,13 @@ function updateRiskTypeDetailTable() {
     });
 
     const sortedTypes = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    const grandTotal = filteredData.length;
 
     let html = '';
-    let grandTotal = 0;
 
     sortedTypes.forEach((type, index) => {
         const count = counts[type];
-        grandTotal += count;
+        const pct = grandTotal > 0 ? ((count / grandTotal) * 100).toFixed(2) : '0.00';
 
         let dotClass = 'purple';
         if (type.includes('ไม่มี')) dotClass = 'green';
@@ -503,6 +827,7 @@ function updateRiskTypeDetailTable() {
                 <td style="text-align: center; color: var(--text-muted); font-weight: 500;">${index + 1}</td>
                 <td><span class="opd-dot ${dotClass}"></span> <strong>${type}</strong></td>
                 <td style="text-align: right; font-weight: 600;">${count.toLocaleString()}</td>
+                <td style="text-align: right; font-weight: 600; color: #8b5cf6;">${pct}%</td>
             </tr>
         `;
     });
@@ -515,6 +840,7 @@ function updateRiskTypeDetailTable() {
                 <td style="text-align: center;"><strong>รวม</strong></td>
                 <td><strong>รวมปัจจัย/ประเภทความเสี่ยงทั้งหมด</strong></td>
                 <td style="text-align: right; font-weight: 700; color: #8b5cf6;">${grandTotal.toLocaleString()} คน</td>
+                <td style="text-align: right; font-weight: 700; color: #8b5cf6;">100.0%</td>
             </tr>
         `;
     }
@@ -601,21 +927,10 @@ function updateAmpurDetailTable() {
 }
 
 function updateSummaryCards() {
-    document.getElementById('totalPatients').textContent = filteredData.length;
-
-    const withComma = filteredData.filter(d => (d.addr || '').includes(',')).length;
-    document.getElementById('commaAddrCount').textContent = withComma;
-
-    const highRisk = filteredData.filter(d => String(d.risk_group).toLowerCase().includes('เสี่ยง')).length;
-    document.getElementById('highRiskCount').textContent = highRisk;
-
-    if (filteredData.length > 0) {
-        const nationCounts = {};
-        filteredData.forEach(d => nationCounts[d.nation] = (nationCounts[d.nation] || 0) + 1);
-        const top = Object.keys(nationCounts).reduce((a, b) => nationCounts[a] > nationCounts[b] ? a : b);
-        document.getElementById('topNation').textContent = top;
-    } else {
-        document.getElementById('topNation').textContent = '-';
+    const total = filteredData.length;
+    const totalEl = document.getElementById('totalPatients');
+    if (totalEl) {
+        totalEl.textContent = total.toLocaleString();
     }
 }
 
@@ -696,13 +1011,30 @@ function updateCharts() {
         }]
     }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } });
 
-    // 3. Nationality Chart
+    // 3. Nationality Chart (Top 5)
     const nationCounts = getCounts('nation');
     const totalNations = Object.values(nationCounts).reduce((a, b) => a + b, 0);
     const sortedNationKeys = Object.keys(nationCounts).sort((a, b) => nationCounts[b] - nationCounts[a]);
     
-    const nationLabels = sortedNationKeys.map(k => {
-        const count = nationCounts[k];
+    let displayNationKeys = sortedNationKeys.slice(0, 5);
+    let displayCounts = {};
+    let otherCount = 0;
+
+    sortedNationKeys.forEach((k, idx) => {
+        if (idx < 5) {
+            displayCounts[k] = nationCounts[k];
+        } else {
+            otherCount += nationCounts[k];
+        }
+    });
+
+    if (otherCount > 0) {
+        displayNationKeys.push('อื่นๆ');
+        displayCounts['อื่นๆ'] = otherCount;
+    }
+
+    const nationLabels = displayNationKeys.map(k => {
+        const count = displayCounts[k];
         const pct = totalNations > 0 ? ((count / totalNations) * 100).toFixed(1) : 0;
         return `${k}: ${count.toLocaleString()} คน (${pct}%)`;
     });
@@ -710,8 +1042,8 @@ function updateCharts() {
     createOrUpdateChart('nationChart', 'pie', {
         labels: nationLabels,
         datasets: [{
-            data: sortedNationKeys.map(k => nationCounts[k]),
-            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'],
+            data: displayNationKeys.map(k => displayCounts[k]),
+            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'],
             borderWidth: 0
         }]
     }, { 
@@ -763,6 +1095,138 @@ function updateCharts() {
             y: { stacked: true }
         }
     });
+
+    // 5. RX_RESULT Chart (ผลการรักษา - Top 5)
+    renderCategoryChart('rxResultChart', 'rx_result', 'bar', [
+        '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'
+    ]);
+
+    // 6. B24_RESULT Chart (ผลตรวจ B24/HIV)
+    renderCategoryChart('b24ResultChart', 'b24_result', 'doughnut', [
+        '#10b981', '#ef4444', '#64748b', '#f59e0b', '#3b82f6'
+    ]);
+
+    // 7. SUMMARY Chart (ผลสรุปทางห้องปฏิบัติการ B-/B+)
+    renderCategoryChart('summaryChart', 'summary', 'doughnut', [
+        '#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'
+    ]);
+
+    // 8. REGIS_TYPE Chart (ประเภทการขึ้นทะเบียน - Top 5)
+    renderCategoryChart('regisTypeChart', 'regis_type', 'bar', [
+        '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#64748b'
+    ]);
+
+    // 9. CLASSIFY Chart (การจำแนกประเภทวัณโรค)
+    renderCategoryChart('classifyChart', 'classify', 'doughnut', [
+        '#06b6d4', '#a855f7', '#f97316', '#10b981', '#64748b'
+    ]);
+
+    // 10. OCC_NAME_TH Chart (อาชีพของผู้ป่วย - Top 5)
+    renderCategoryChart('occNameChart', 'occ_name_th', 'bar', [
+        '#0284c7', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'
+    ]);
+}
+
+function renderCategoryChart(canvasId, fieldKey, chartType = 'doughnut', palette = null) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const counts = {};
+    let total = 0;
+
+    filteredData.forEach(d => {
+        let val = (d[fieldKey] || '').trim();
+        if (!val || val === '-' || val === 'null' || val === 'undefined') {
+            val = 'ไม่ระบุ';
+        }
+        counts[val] = (counts[val] || 0) + 1;
+        total++;
+    });
+
+    if (total === 0) return;
+
+    const sortedKeys = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+
+    // นโยบายเริ่มต้น 5 รายการแรก (Top 5)
+    let displayKeys = sortedKeys.slice(0, 5);
+    let displayCounts = {};
+    let otherCount = 0;
+
+    sortedKeys.forEach((k, idx) => {
+        if (idx < 5) {
+            displayCounts[k] = counts[k];
+        } else {
+            otherCount += counts[k];
+        }
+    });
+
+    if (otherCount > 0) {
+        displayKeys.push('อื่นๆ');
+        displayCounts['อื่นๆ'] = otherCount;
+    }
+
+    const defaultColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#64748b'];
+    const colors = palette || defaultColors;
+    const isBar = chartType === 'bar';
+
+    // แสดงทั้งชื่อ จำนวนคน และ สัดส่วน %
+    const labels = displayKeys.map(k => {
+        const count = displayCounts[k];
+        const pct = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
+        return isBar ? `${k} (${pct}%)` : `${k}: ${count.toLocaleString()} คน (${pct}%)`;
+    });
+
+    const data = {
+        labels: labels,
+        datasets: [{
+            data: displayKeys.map(k => displayCounts[k]),
+            backgroundColor: displayKeys.map((k, i) => colors[i % colors.length]),
+            borderWidth: 0,
+            borderRadius: isBar ? 6 : 0
+        }]
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: !isBar,
+                position: 'bottom',
+                labels: {
+                    padding: 12,
+                    font: { size: 12, weight: '500' },
+                    color: '#cbd5e1'
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const count = context.raw || 0;
+                        const pct = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
+                        return ` จำนวน: ${count.toLocaleString()} คน (สัดส่วน ${pct}%)`;
+                    }
+                }
+            }
+        }
+    };
+
+    if (isBar) {
+        options.indexAxis = 'y'; // แนวนอน แสดงชื่อและ % ชัดเจน
+        options.plugins.legend = { display: false };
+        options.scales = {
+            x: {
+                grid: { color: 'rgba(51, 65, 85, 0.4)' },
+                ticks: { color: '#94a3b8' }
+            },
+            y: {
+                grid: { display: false },
+                ticks: { color: '#e2e8f0', font: { size: 12, weight: '500' } }
+            }
+        };
+    }
+
+    createOrUpdateChart(canvasId, chartType, data, options);
 }
 
 // ==========================================
@@ -977,10 +1441,8 @@ async function handleExcelFile(file) {
                 if (cidKey) newFileIds.add(cidKey);
 
                 let name = getField(row, ['PNAME', 'NAME', 'ชื่อ-นามสกุล', 'ชื่อ']);
-                let date = getField(row, ['START_DATE', 'DT07_START_DATE', 'DATE_REGIS', 'DT07_DATE_REGIS', 'Date', 'วันที่']);
-                if (date.length === 8 && /^\d{8}$/.test(date)) {
-                    date = `${date.substring(0,4)}-${date.substring(4,6)}-${date.substring(6,8)}`;
-                }
+                let date = getField(row, ['DATE_REGIS', 'DT07_DATE_REGIS', 'START_DATE', 'DT07_START_DATE', 'Date', 'วันที่']);
+                date = formatDateValue(date);
 
                 let addr = getField(row, ['ADDR', 'Address', 'ที่อยู่']);
                 let mu = getField(row, ['MU', 'หมู่']);
@@ -1000,6 +1462,12 @@ async function handleExcelFile(file) {
                 let nation = getField(row, ['NATION', 'DT07_PEOPLE_TYPE', 'PEOPLE_TYPE', 'สัญชาติ']) || 'ไทย';
                 let risk_group = getField(row, ['RISK_GROUP', 'Risk Group', 'กลุ่มเสี่ยง']) || '-';
                 let risk_type = getField(row, ['RISK_TYPE', 'Risk Type', 'ประเภทความเสี่ยง']) || '-';
+                let rx_result = getField(row, ['RX_RESULT', 'ผลการรักษา']) || '-';
+                let b24_result = getField(row, ['B24_RESULT', 'B24', 'HIV']) || '-';
+                let summary = getField(row, ['SUMMARY', 'ผลสรุป']) || '-';
+                let regis_type = getField(row, ['REGIS_TYPE', 'ประเภทการขึ้นทะเบียน']) || '-';
+                let classify = getField(row, ['CLASSIFY', 'การจำแนก']) || '-';
+                let occ_name_th = getField(row, ['OCC_NAME_TH', 'OCC_NAME', 'OCCUPATION', 'อาชีพ']) || '-';
 
                 let ampArea = (ampRaw === 'เมืองเชียงราย' || ampRaw.includes('เมืองเชียงราย')) ? 'ในเขตอำเภอเมืองเชียงราย' : 'นอกเขต';
 
@@ -1015,7 +1483,13 @@ async function handleExcelFile(file) {
                     ampRaw: ampRaw,
                     nation: nation,
                     risk_group: risk_group,
-                    risk_type: risk_type
+                    risk_type: risk_type,
+                    rx_result: rx_result,
+                    b24_result: b24_result,
+                    summary: summary,
+                    regis_type: regis_type,
+                    classify: classify,
+                    occ_name_th: occ_name_th
                 });
 
                 newRawExcelRows.push(row);
