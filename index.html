@@ -152,159 +152,319 @@
             <div id="filterResultBadge" class="filter-result-badge" style="display: none;"></div>
 
             <section class="charts-section">
+
+                <!-- ===== OPD/IPD SUMMARY ===== -->
                 <div class="card chart-card">
-                    <h3>สัดส่วนประเภท OPD / IPD / ไม่ระบุ</h3>
-                    <div class="opd-summary-table-container">
+                    <div class="card-header-toggle">
+                        <h3>📊 สัดส่วนประเภท OPD / IPD / ไม่ระบุ</h3>
+                        <div class="chart-view-toggle">
+                            <button type="button" id="btnShowOpdChart" class="view-toggle-btn active">📊 กราฟแท่ง</button>
+                            <button type="button" id="btnShowOpdTable" class="view-toggle-btn">📋 ตารางสรุป</button>
+                        </div>
+                    </div>
+                    <div id="opdSummaryChartContainer" class="chart-container" style="height: 250px;">
+                        <canvas id="opdSummaryChart"></canvas>
+                    </div>
+                    <div id="opdSummaryTableContainer" class="opd-summary-table-container" style="display: none;">
                         <table class="opd-summary-table">
-                            <thead>
-                                <tr>
-                                    <th>ประเภทแผนก</th>
-                                    <th>กลุ่ม OPD / IPD</th>
-                                    <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
-                                    <th style="text-align: right;">สัดส่วน (%)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="opdSummaryTableBody">
-                                <!-- Populated dynamically by JS -->
-                            </tbody>
-                            <tfoot id="opdSummaryTableFoot">
-                                <!-- Populated dynamically by JS -->
-                            </tfoot>
+                            <thead><tr>
+                                <th>ประเภทแผนก</th>
+                                <th>กลุ่ม OPD / IPD</th>
+                                <th style="text-align:right;">จำนวนผู้ป่วย (คน)</th>
+                                <th style="text-align:right;">สัดส่วน (%)</th>
+                            </tr></thead>
+                            <tbody id="opdSummaryTableBody"></tbody>
+                            <tfoot id="opdSummaryTableFoot"></tfoot>
                         </table>
                     </div>
                 </div>
+
+                <!-- ===== OPD DETAIL ===== -->
                 <div class="card chart-card">
-                    <h3>รายละเอียดแผนก OPD / IPD</h3>
-                    <div class="opd-summary-table-container scrollable-table-container">
+                    <div class="card-header-toggle">
+                        <h3>🏥 รายละเอียดแผนก OPD / IPD</h3>
+                        <div class="chart-view-toggle">
+                            <button type="button" id="btnShowOpdDetailChart" class="view-toggle-btn active">📊 กราฟแท่ง</button>
+                            <button type="button" id="btnShowOpdDetailTable" class="view-toggle-btn">📋 ตารางสรุป</button>
+                        </div>
+                    </div>
+                    <div id="opdDetailChartContainer" class="chart-container" style="height: 280px;">
+                        <canvas id="opdDetailChart"></canvas>
+                    </div>
+                    <div id="opdDetailTableContainer" class="opd-summary-table-container scrollable-table-container" style="display: none;">
                         <table class="opd-summary-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 70px; text-align: center;">ลำดับ</th>
-                                    <th>ชื่อแผนก OPD / IPD</th>
-                                    <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
-                                    <th style="text-align: right;">สัดส่วน (%)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="opdDetailTableBody">
-                                <!-- Populated dynamically by JS -->
-                            </tbody>
-                            <tfoot id="opdDetailTableFoot">
-                                <!-- Populated dynamically by JS -->
-                            </tfoot>
+                            <thead><tr>
+                                <th style="width:70px;text-align:center;">ลำดับ</th>
+                                <th>ชื่อแผนก OPD / IPD</th>
+                                <th style="text-align:right;">จำนวนผู้ป่วย (คน)</th>
+                                <th style="text-align:right;">สัดส่วน (%)</th>
+                            </tr></thead>
+                            <tbody id="opdDetailTableBody"></tbody>
+                            <tfoot id="opdDetailTableFoot"></tfoot>
                         </table>
                     </div>
                 </div>
+
+                <!-- ===== NATIONALITY ===== -->
                 <div class="card chart-card">
-                    <h3>Nationality Distribution</h3>
-                    <div class="chart-container">
+                    <div class="card-header-toggle">
+                        <h3>🌏 สัดส่วนสัญชาติผู้ป่วย (Nationality)</h3>
+                        <div class="chart-view-toggle">
+                            <button type="button" id="btnShowNationChart" class="view-toggle-btn active">📊 กราฟ</button>
+                            <button type="button" id="btnShowNationTable" class="view-toggle-btn">📋 ตาราง</button>
+                        </div>
+                    </div>
+                    <div id="nationChartContainer" class="chart-container">
                         <canvas id="nationChart"></canvas>
                     </div>
-                </div>
-                <div class="card chart-card">
-                    <h3>รายละเอียดกลุ่มเสี่ยงหลัก (Risk Group)</h3>
-                    <div class="opd-summary-table-container scrollable-table-container">
+                    <div id="nationTableContainer" class="opd-summary-table-container scrollable-table-container" style="display: none;">
                         <table class="opd-summary-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 70px; text-align: center;">ลำดับ</th>
-                                    <th>กลุ่มเสี่ยงหลัก (Risk Group)</th>
-                                    <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
-                                    <th style="text-align: right;">สัดส่วน (%)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="riskGroupDetailTableBody">
-                                <!-- Populated dynamically by JS -->
-                            </tbody>
-                            <tfoot id="riskGroupDetailTableFoot">
-                                <!-- Populated dynamically by JS -->
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-                <div class="card chart-card">
-                    <h3>รายละเอียดประเภทความเสี่ยง (Risk Type)</h3>
-                    <div class="opd-summary-table-container scrollable-table-container">
-                        <table class="opd-summary-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 70px; text-align: center;">ลำดับ</th>
-                                    <th>ประเภท/ปัจจัยเสี่ยง (Risk Type)</th>
-                                    <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
-                                    <th style="text-align: right;">สัดส่วน (%)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="riskTypeDetailTableBody">
-                                <!-- Populated dynamically by JS -->
-                            </tbody>
-                            <tfoot id="riskTypeDetailTableFoot">
-                                <!-- Populated dynamically by JS -->
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-                <div class="card chart-card">
-                    <h3>รายละเอียดเขตพื้นที่ผู้ป่วย (AMPUR_PATIENT)</h3>
-                    <div class="opd-summary-table-container scrollable-table-container">
-                        <table class="opd-summary-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 70px; text-align: center;">ลำดับ</th>
-                                    <th>เขตพื้นที่ (AMPUR_PATIENT)</th>
-                                    <th style="text-align: right;">จำนวนผู้ป่วย (คน)</th>
-                                    <th style="text-align: right;">สัดส่วน (%)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ampurDetailTableBody">
-                                <!-- Populated dynamically by JS -->
-                            </tbody>
-                            <tfoot id="ampurDetailTableFoot">
-                                <!-- Populated dynamically by JS -->
-                            </tfoot>
+                            <thead><tr>
+                                <th style="width:70px;text-align:center;">ลำดับ</th>
+                                <th>สัญชาติ</th>
+                                <th style="text-align:right;">จำนวนผู้ป่วย (คน)</th>
+                                <th style="text-align:right;">สัดส่วน (%)</th>
+                            </tr></thead>
+                            <tbody id="nationTableBody"></tbody>
+                            <tfoot id="nationTableFoot"></tfoot>
                         </table>
                     </div>
                 </div>
 
+                <!-- ===== RISK GROUP ===== -->
                 <div class="card chart-card">
-                    <h3>📊 ผลการรักษา (RX_RESULT)</h3>
-                    <div class="chart-container">
+                    <div class="card-header-toggle">
+                        <h3>⚠️ กลุ่มเสี่ยงหลัก (Risk Group)</h3>
+                        <div class="chart-view-toggle">
+                            <button type="button" id="btnShowRiskGroupChart" class="view-toggle-btn active">📊 กราฟแท่ง</button>
+                            <button type="button" id="btnShowRiskGroupTable" class="view-toggle-btn">📋 ตารางสรุป</button>
+                        </div>
+                    </div>
+                    <div id="riskGroupChartContainer" class="chart-container" style="height: 280px;">
+                        <canvas id="riskGroupChart"></canvas>
+                    </div>
+                    <div id="riskGroupTableContainer" class="opd-summary-table-container scrollable-table-container" style="display: none;">
+                        <table class="opd-summary-table">
+                            <thead><tr>
+                                <th style="width:70px;text-align:center;">ลำดับ</th>
+                                <th>กลุ่มเสี่ยงหลัก (Risk Group)</th>
+                                <th style="text-align:right;">จำนวนผู้ป่วย (คน)</th>
+                                <th style="text-align:right;">สัดส่วน (%)</th>
+                            </tr></thead>
+                            <tbody id="riskGroupDetailTableBody"></tbody>
+                            <tfoot id="riskGroupDetailTableFoot"></tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ===== RISK TYPE ===== -->
+                <div class="card chart-card">
+                    <div class="card-header-toggle">
+                        <h3>🔴 ประเภทความเสี่ยง (Risk Type)</h3>
+                        <div class="chart-view-toggle">
+                            <button type="button" id="btnShowRiskTypeChart" class="view-toggle-btn active">📊 กราฟแท่ง</button>
+                            <button type="button" id="btnShowRiskTypeTable" class="view-toggle-btn">📋 ตารางสรุป</button>
+                        </div>
+                    </div>
+                    <div id="riskTypeChartContainer" class="chart-container" style="height: 280px;">
+                        <canvas id="riskTypeChart"></canvas>
+                    </div>
+                    <div id="riskTypeTableContainer" class="opd-summary-table-container scrollable-table-container" style="display: none;">
+                        <table class="opd-summary-table">
+                            <thead><tr>
+                                <th style="width:70px;text-align:center;">ลำดับ</th>
+                                <th>ประเภท/ปัจจัยเสี่ยง (Risk Type)</th>
+                                <th style="text-align:right;">จำนวนผู้ป่วย (คน)</th>
+                                <th style="text-align:right;">สัดส่วน (%)</th>
+                            </tr></thead>
+                            <tbody id="riskTypeDetailTableBody"></tbody>
+                            <tfoot id="riskTypeDetailTableFoot"></tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ===== AMPUR ===== -->
+                <div class="card chart-card">
+                    <div class="card-header-toggle">
+                        <h3>📍 เขตพื้นที่ผู้ป่วย (AMPUR_PATIENT)</h3>
+                        <div class="chart-view-toggle">
+                            <button type="button" id="btnShowAmpurChart" class="view-toggle-btn active">📊 กราฟแท่ง</button>
+                            <button type="button" id="btnShowAmpurTable" class="view-toggle-btn">📋 ตารางสรุป</button>
+                        </div>
+                    </div>
+                    <div id="ampurChartContainer" class="chart-container" style="height: 200px;">
+                        <canvas id="ampurChart"></canvas>
+                    </div>
+                    <div id="ampurTableContainer" class="opd-summary-table-container scrollable-table-container" style="display: none;">
+                        <table class="opd-summary-table">
+                            <thead><tr>
+                                <th style="width:70px;text-align:center;">ลำดับ</th>
+                                <th>เขตพื้นที่ (AMPUR_PATIENT)</th>
+                                <th style="text-align:right;">จำนวนผู้ป่วย (คน)</th>
+                                <th style="text-align:right;">สัดส่วน (%)</th>
+                            </tr></thead>
+                            <tbody id="ampurDetailTableBody"></tbody>
+                            <tfoot id="ampurDetailTableFoot"></tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ===== RX_RESULT ===== -->
+                <div class="card chart-card">
+                    <div class="card-header-toggle">
+                        <h3>📊 ผลการรักษา (RX_RESULT)</h3>
+                        <div class="chart-view-toggle">
+                            <button type="button" id="btnShowRxChart" class="view-toggle-btn active">📊 กราฟแท่ง</button>
+                            <button type="button" id="btnShowRxTable" class="view-toggle-btn">📋 ตารางสรุป</button>
+                        </div>
+                    </div>
+                    <div id="rxResultChartContainer" class="chart-container" style="height: 280px;">
                         <canvas id="rxResultChart"></canvas>
                     </div>
+                    <div id="rxResultTableContainer" class="opd-summary-table-container scrollable-table-container" style="display: none;">
+                        <table class="opd-summary-table">
+                            <thead><tr>
+                                <th style="width:70px;text-align:center;">ลำดับ</th>
+                                <th>ผลการรักษา (RX_RESULT)</th>
+                                <th style="text-align:right;">จำนวนผู้ป่วย (คน)</th>
+                                <th style="text-align:right;">สัดส่วน (%)</th>
+                            </tr></thead>
+                            <tbody id="rxResultTableBody"></tbody>
+                            <tfoot id="rxResultTableFoot"></tfoot>
+                        </table>
+                    </div>
                 </div>
 
+                <!-- ===== B24_RESULT ===== -->
                 <div class="card chart-card">
-                    <h3>🩸 ผลตรวจ B24 / HIV (B24_RESULT)</h3>
-                    <div class="chart-container">
+                    <div class="card-header-toggle">
+                        <h3>🩸 ผลตรวจ B24 / HIV (B24_RESULT)</h3>
+                        <div class="chart-view-toggle">
+                            <button type="button" id="btnShowB24Chart" class="view-toggle-btn active">📊 กราฟ</button>
+                            <button type="button" id="btnShowB24Table" class="view-toggle-btn">📋 ตาราง</button>
+                        </div>
+                    </div>
+                    <div id="b24ResultChartContainer" class="chart-container">
                         <canvas id="b24ResultChart"></canvas>
                     </div>
+                    <div id="b24ResultTableContainer" class="opd-summary-table-container scrollable-table-container" style="display: none;">
+                        <table class="opd-summary-table">
+                            <thead><tr>
+                                <th style="width:70px;text-align:center;">ลำดับ</th>
+                                <th>ผลตรวจ B24/HIV</th>
+                                <th style="text-align:right;">จำนวนผู้ป่วย (คน)</th>
+                                <th style="text-align:right;">สัดส่วน (%)</th>
+                            </tr></thead>
+                            <tbody id="b24ResultTableBody"></tbody>
+                            <tfoot id="b24ResultTableFoot"></tfoot>
+                        </table>
+                    </div>
                 </div>
 
+                <!-- ===== SUMMARY ===== -->
                 <div class="card chart-card">
-                    <h3>🔬 ผลสรุปทางห้องปฏิบัติการ (SUMMARY)</h3>
-                    <div class="chart-container">
+                    <div class="card-header-toggle">
+                        <h3>🔬 ผลสรุปทางห้องปฏิบัติการ (SUMMARY)</h3>
+                        <div class="chart-view-toggle">
+                            <button type="button" id="btnShowSummaryChart" class="view-toggle-btn active">📊 กราฟ</button>
+                            <button type="button" id="btnShowSummaryTable" class="view-toggle-btn">📋 ตาราง</button>
+                        </div>
+                    </div>
+                    <div id="summaryChartContainer" class="chart-container">
                         <canvas id="summaryChart"></canvas>
                     </div>
+                    <div id="summaryTableContainer" class="opd-summary-table-container scrollable-table-container" style="display: none;">
+                        <table class="opd-summary-table">
+                            <thead><tr>
+                                <th style="width:70px;text-align:center;">ลำดับ</th>
+                                <th>ผลสรุปทางห้องปฏิบัติการ</th>
+                                <th style="text-align:right;">จำนวนผู้ป่วย (คน)</th>
+                                <th style="text-align:right;">สัดส่วน (%)</th>
+                            </tr></thead>
+                            <tbody id="summaryTableBody"></tbody>
+                            <tfoot id="summaryTableFoot"></tfoot>
+                        </table>
+                    </div>
                 </div>
 
+                <!-- ===== REGIS_TYPE ===== -->
                 <div class="card chart-card">
-                    <h3>📋 ประเภทการขึ้นทะเบียน (REGIS_TYPE)</h3>
-                    <div class="chart-container">
+                    <div class="card-header-toggle">
+                        <h3>📋 ประเภทการขึ้นทะเบียน (REGIS_TYPE)</h3>
+                        <div class="chart-view-toggle">
+                            <button type="button" id="btnShowRegisChart" class="view-toggle-btn active">📊 กราฟแท่ง</button>
+                            <button type="button" id="btnShowRegisTable" class="view-toggle-btn">📋 ตารางสรุป</button>
+                        </div>
+                    </div>
+                    <div id="regisTypeChartContainer" class="chart-container" style="height: 280px;">
                         <canvas id="regisTypeChart"></canvas>
                     </div>
+                    <div id="regisTypeTableContainer" class="opd-summary-table-container scrollable-table-container" style="display: none;">
+                        <table class="opd-summary-table">
+                            <thead><tr>
+                                <th style="width:70px;text-align:center;">ลำดับ</th>
+                                <th>ประเภทการขึ้นทะเบียน</th>
+                                <th style="text-align:right;">จำนวนผู้ป่วย (คน)</th>
+                                <th style="text-align:right;">สัดส่วน (%)</th>
+                            </tr></thead>
+                            <tbody id="regisTypeTableBody"></tbody>
+                            <tfoot id="regisTypeTableFoot"></tfoot>
+                        </table>
+                    </div>
                 </div>
 
+                <!-- ===== CLASSIFY ===== -->
                 <div class="card chart-card">
-                    <h3>🫁 การจำแนกประเภทวัณโรค (CLASSIFY)</h3>
-                    <div class="chart-container">
+                    <div class="card-header-toggle">
+                        <h3>🫁 การจำแนกประเภทวัณโรค (CLASSIFY)</h3>
+                        <div class="chart-view-toggle">
+                            <button type="button" id="btnShowClassifyChart" class="view-toggle-btn active">📊 กราฟ</button>
+                            <button type="button" id="btnShowClassifyTable" class="view-toggle-btn">📋 ตาราง</button>
+                        </div>
+                    </div>
+                    <div id="classifyChartContainer" class="chart-container">
                         <canvas id="classifyChart"></canvas>
                     </div>
-                </div>
-
-                <div class="card chart-card">
-                    <h3>💼 อาชีพของผู้ป่วย (OCC_NAME_TH)</h3>
-                    <div class="chart-container">
-                        <canvas id="occNameChart"></canvas>
+                    <div id="classifyTableContainer" class="opd-summary-table-container scrollable-table-container" style="display: none;">
+                        <table class="opd-summary-table">
+                            <thead><tr>
+                                <th style="width:70px;text-align:center;">ลำดับ</th>
+                                <th>ประเภทวัณโรค (CLASSIFY)</th>
+                                <th style="text-align:right;">จำนวนผู้ป่วย (คน)</th>
+                                <th style="text-align:right;">สัดส่วน (%)</th>
+                            </tr></thead>
+                            <tbody id="classifyTableBody"></tbody>
+                            <tfoot id="classifyTableFoot"></tfoot>
+                        </table>
                     </div>
                 </div>
+
+                <!-- ===== OCC_NAME_TH ===== -->
+                <div class="card chart-card">
+                    <div class="card-header-toggle">
+                        <h3>💼 อาชีพของผู้ป่วย (OCC_NAME_TH)</h3>
+                        <div class="chart-view-toggle">
+                            <button type="button" id="btnShowOccChart" class="view-toggle-btn active">📊 กราฟแท่ง</button>
+                            <button type="button" id="btnShowOccTable" class="view-toggle-btn">📋 ตารางสรุป</button>
+                        </div>
+                    </div>
+                    <div id="occNameChartContainer" class="chart-container" style="height: 280px;">
+                        <canvas id="occNameChart"></canvas>
+                    </div>
+                    <div id="occNameTableContainer" class="opd-summary-table-container scrollable-table-container" style="display: none;">
+                        <table class="opd-summary-table">
+                            <thead><tr>
+                                <th style="width:70px;text-align:center;">ลำดับ</th>
+                                <th>อาชีพ (OCC_NAME_TH)</th>
+                                <th style="text-align:right;">จำนวนผู้ป่วย (คน)</th>
+                                <th style="text-align:right;">สัดส่วน (%)</th>
+                            </tr></thead>
+                            <tbody id="occNameTableBody"></tbody>
+                            <tfoot id="occNameTableFoot"></tfoot>
+                        </table>
+                    </div>
+                </div>
+
             </section>
         </main>
     </div>
@@ -363,6 +523,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=29"></script>
+    <script src="script.js?v=31"></script>
 </body>
 </html>

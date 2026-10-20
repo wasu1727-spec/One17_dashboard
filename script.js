@@ -266,15 +266,43 @@ function initializeDashboard() {
         const searchInput = document.getElementById('searchInput');
         if (searchInput) searchInput.addEventListener('input', applySearch);
 
-        // Allow pressing Enter in date inputs to trigger "ประมวลรายงาน"
         const dateStart = document.getElementById('dateStart');
         const dateEnd = document.getElementById('dateEnd');
-        if (dateStart) {
-            dateStart.addEventListener('keyup', (e) => { if (e.key === 'Enter') applyFilters(); });
+        if (dateStart) dateStart.addEventListener('keyup', (e) => { if (e.key === 'Enter') applyFilters(); });
+        if (dateEnd) dateEnd.addEventListener('keyup', (e) => { if (e.key === 'Enter') applyFilters(); });
+
+        // Helper: wire up chart/table toggle for any card
+        function setupToggle(chartBtnId, tableBtnId, chartContId, tableContId, redrawFn) {
+            const btnC = document.getElementById(chartBtnId);
+            const btnT = document.getElementById(tableBtnId);
+            const contC = document.getElementById(chartContId);
+            const contT = document.getElementById(tableContId);
+            if (!btnC || !btnT) return;
+            btnC.addEventListener('click', () => {
+                btnC.classList.add('active'); btnT.classList.remove('active');
+                if (contC) contC.style.display = 'block';
+                if (contT) contT.style.display = 'none';
+                if (redrawFn) redrawFn();
+            });
+            btnT.addEventListener('click', () => {
+                btnT.classList.add('active'); btnC.classList.remove('active');
+                if (contC) contC.style.display = 'none';
+                if (contT) contT.style.display = 'block';
+            });
         }
-        if (dateEnd) {
-            dateEnd.addEventListener('keyup', (e) => { if (e.key === 'Enter') applyFilters(); });
-        }
+
+        setupToggle('btnShowOpdChart', 'btnShowOpdTable', 'opdSummaryChartContainer', 'opdSummaryTableContainer', updateOpdSummaryChart);
+        setupToggle('btnShowOpdDetailChart', 'btnShowOpdDetailTable', 'opdDetailChartContainer', 'opdDetailTableContainer', updateOpdDetailChart);
+        setupToggle('btnShowNationChart', 'btnShowNationTable', 'nationChartContainer', 'nationTableContainer', () => updateCharts());
+        setupToggle('btnShowRiskGroupChart', 'btnShowRiskGroupTable', 'riskGroupChartContainer', 'riskGroupTableContainer', updateRiskGroupChart);
+        setupToggle('btnShowRiskTypeChart', 'btnShowRiskTypeTable', 'riskTypeChartContainer', 'riskTypeTableContainer', updateRiskTypeChart);
+        setupToggle('btnShowAmpurChart', 'btnShowAmpurTable', 'ampurChartContainer', 'ampurTableContainer', updateAmpurChart);
+        setupToggle('btnShowRxChart', 'btnShowRxTable', 'rxResultChartContainer', 'rxResultTableContainer', () => updateCharts());
+        setupToggle('btnShowB24Chart', 'btnShowB24Table', 'b24ResultChartContainer', 'b24ResultTableContainer', () => updateCharts());
+        setupToggle('btnShowSummaryChart', 'btnShowSummaryTable', 'summaryChartContainer', 'summaryTableContainer', () => updateCharts());
+        setupToggle('btnShowRegisChart', 'btnShowRegisTable', 'regisTypeChartContainer', 'regisTypeTableContainer', () => updateCharts());
+        setupToggle('btnShowClassifyChart', 'btnShowClassifyTable', 'classifyChartContainer', 'classifyTableContainer', () => updateCharts());
+        setupToggle('btnShowOccChart', 'btnShowOccTable', 'occNameChartContainer', 'occNameTableContainer', () => updateCharts());
     } catch (err) {
         showError("เกิดข้อผิดพลาดในการเตรียมแดชบอร์ด (initializeDashboard): " + err.message);
     }
@@ -616,17 +644,129 @@ function applySearch() {
 
 function updateDashboard() {
     updateSummaryCards();
+    updateOpdSummaryChart();
     updateOpdSummaryTable();
+    updateOpdDetailChart();
     updateOpdDetailTable();
+    updateRiskGroupChart();
     updateRiskGroupDetailTable();
+    updateRiskTypeChart();
     updateRiskTypeDetailTable();
+    updateAmpurChart();
     updateAmpurDetailTable();
     updateTable();
     try {
         updateCharts();
+        updateCategoryTable('nation', 'nationTableBody', 'nationTableFoot');
+        updateCategoryTable('rx_result', 'rxResultTableBody', 'rxResultTableFoot');
+        updateCategoryTable('b24_result', 'b24ResultTableBody', 'b24ResultTableFoot');
+        updateCategoryTable('summary', 'summaryTableBody', 'summaryTableFoot');
+        updateCategoryTable('regis_type', 'regisTypeTableBody', 'regisTypeTableFoot');
+        updateCategoryTable('classify', 'classifyTableBody', 'classifyTableFoot');
+        updateCategoryTable('occ_name_th', 'occNameTableBody', 'occNameTableFoot');
     } catch (err) {
         console.error("Chart Error:", err);
     }
+}
+
+function updateOpdSummaryChart() {
+    const canvas = document.getElementById('opdSummaryChart');
+    if (!canvas) return;
+
+    const total = filteredData.length;
+    let opdCount = 0;
+    let ipdCount = 0;
+    let unkCount = 0;
+
+    filteredData.forEach(d => {
+        if (d.opd.startsWith('OPD')) opdCount++;
+        else if (d.opd.startsWith('IPD')) ipdCount++;
+        else unkCount++;
+    });
+
+    const opdPct = total > 0 ? ((opdCount / total) * 100).toFixed(1) : '0.0';
+    const ipdPct = total > 0 ? ((ipdCount / total) * 100).toFixed(1) : '0.0';
+    const unkPct = total > 0 ? ((unkCount / total) * 100).toFixed(1) : '0.0';
+
+    const labels = [
+        `OPD ผู้ป่วยนอก (${opdPct}%)`,
+        `IPD ผู้ป่วยใน (${ipdPct}%)`,
+        `ไม่ระบุ OPD/IPD (${unkPct}%)`
+    ];
+
+    const data = {
+        labels: labels,
+        datasets: [{
+            label: 'จำนวนผู้ป่วย (คน)',
+            data: [opdCount, ipdCount, unkCount],
+            backgroundColor: [
+                'rgba(16, 185, 129, 0.85)', // Green for OPD
+                'rgba(245, 158, 11, 0.85)', // Orange for IPD
+                'rgba(100, 116, 139, 0.85)' // Slate for Unknown
+            ],
+            borderColor: [
+                '#10b981',
+                '#f59e0b',
+                '#64748b'
+            ],
+            borderWidth: 1.5,
+            borderRadius: 8,
+            maxBarThickness: 65
+        }]
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                titleFont: { size: 13, weight: '600' },
+                bodyFont: { size: 12.5 },
+                padding: 12,
+                borderColor: 'rgba(51, 65, 85, 0.8)',
+                borderWidth: 1,
+                callbacks: {
+                    title: function(items) {
+                        const idx = items[0].dataIndex;
+                        const fullNames = [
+                            'OPD (รวมทุกแผนกผู้ป่วยนอก)',
+                            'IPD (รวมทุกแผนกผู้ป่วยใน)',
+                            'ไม่ระบุ OPD / IPD (มีเฉพาะบ้านเลขที่/หมู่)'
+                        ];
+                        return fullNames[idx] || items[0].label;
+                    },
+                    label: function(context) {
+                        const count = context.raw || 0;
+                        const pct = total > 0 ? ((count / total) * 100).toFixed(2) : '0.00';
+                        return ` จำนวนผู้ป่วย: ${count.toLocaleString()} คน (${pct}%)`;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                ticks: {
+                    color: '#e2e8f0',
+                    font: { size: 12.5, weight: '600' }
+                }
+            },
+            y: {
+                grid: { color: 'rgba(51, 65, 85, 0.35)' },
+                ticks: {
+                    color: '#94a3b8',
+                    font: { size: 11.5 },
+                    callback: function(value) { return value.toLocaleString() + ' คน'; }
+                }
+            }
+        }
+    };
+
+    createOrUpdateChart('opdSummaryChart', 'bar', data, options);
 }
 
 function updateOpdSummaryTable() {
@@ -934,6 +1074,100 @@ function updateSummaryCards() {
     }
 }
 
+// Bar chart for OPD Detail
+function updateOpdDetailChart() {
+    const specificDepts = filteredData.filter(d => d.opd && d.opd !== 'ไม่ระบุ OPD');
+    const deptCounts = {};
+    specificDepts.forEach(d => { deptCounts[d.opd] = (deptCounts[d.opd] || 0) + 1; });
+    const sorted = Object.keys(deptCounts).sort((a,b) => deptCounts[b]-deptCounts[a]).slice(0, 8);
+    const total = filteredData.length;
+    const colors = sorted.map(k => k.startsWith('IPD') ? 'rgba(245,158,11,0.85)' : 'rgba(16,185,129,0.85)');
+    createOrUpdateChart('opdDetailChart', 'bar', {
+        labels: sorted.map(k => { const pct = total > 0 ? ((deptCounts[k]/total)*100).toFixed(1) : 0; return `${k} (${pct}%)`; }),
+        datasets: [{ label: 'ผู้ป่วย (คน)', data: sorted.map(k => deptCounts[k]), backgroundColor: colors, borderRadius: 6, maxBarThickness: 55 }]
+    }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toLocaleString()} คน (${total>0?((ctx.raw/total)*100).toFixed(1):0}%)` } } }, scales: { x: { grid: { display: false }, ticks: { color: '#e2e8f0', font: { size: 11 }, maxRotation: 30, minRotation: 0 } }, y: { grid: { color: 'rgba(51,65,85,0.35)' }, ticks: { color: '#94a3b8', callback: v => v.toLocaleString()+' คน' } } } });
+}
+
+// Bar chart for Risk Group
+function updateRiskGroupChart() {
+    const counts = {};
+    filteredData.forEach(d => { const g = d.risk_group || 'ไม่ระบุ'; counts[g] = (counts[g]||0)+1; });
+    const sorted = Object.keys(counts).sort((a,b) => counts[b]-counts[a]);
+    const total = filteredData.length;
+    const palette = ['#3b82f6','#f59e0b','#ef4444','#10b981','#8b5cf6','#64748b'];
+    createOrUpdateChart('riskGroupChart', 'bar', {
+        labels: sorted.map((k,i) => { const pct = total>0?((counts[k]/total)*100).toFixed(1):0; return `${k} (${pct}%)`; }),
+        datasets: [{ label: 'ผู้ป่วย (คน)', data: sorted.map(k=>counts[k]), backgroundColor: sorted.map((_,i)=>palette[i%palette.length]), borderRadius: 6, maxBarThickness: 55 }]
+    }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toLocaleString()} คน (${total>0?((ctx.raw/total)*100).toFixed(1):0}%)` } } }, scales: { x: { grid: { display: false }, ticks: { color: '#e2e8f0', font: { size: 11 }, maxRotation: 30, minRotation: 0 } }, y: { grid: { color: 'rgba(51,65,85,0.35)' }, ticks: { color: '#94a3b8', callback: v => v.toLocaleString()+' คน' } } } });
+}
+
+// Bar chart for Risk Type
+function updateRiskTypeChart() {
+    const counts = {};
+    filteredData.forEach(d => { const t = d.risk_type || 'ไม่ระบุ'; counts[t] = (counts[t]||0)+1; });
+    const sorted = Object.keys(counts).sort((a,b) => counts[b]-counts[a]);
+    const total = filteredData.length;
+    const palette = ['#8b5cf6','#3b82f6','#10b981','#f59e0b','#ec4899','#64748b'];
+    createOrUpdateChart('riskTypeChart', 'bar', {
+        labels: sorted.map(k => { const pct = total>0?((counts[k]/total)*100).toFixed(1):0; return `${k} (${pct}%)`; }),
+        datasets: [{ label: 'ผู้ป่วย (คน)', data: sorted.map(k=>counts[k]), backgroundColor: sorted.map((_,i)=>palette[i%palette.length]), borderRadius: 6, maxBarThickness: 55 }]
+    }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toLocaleString()} คน (${total>0?((ctx.raw/total)*100).toFixed(1):0}%)` } } }, scales: { x: { grid: { display: false }, ticks: { color: '#e2e8f0', font: { size: 11 }, maxRotation: 30, minRotation: 0 } }, y: { grid: { color: 'rgba(51,65,85,0.35)' }, ticks: { color: '#94a3b8', callback: v => v.toLocaleString()+' คน' } } } });
+}
+
+// Bar chart for Ampur (in/out district)
+function updateAmpurChart() {
+    const total = filteredData.length;
+    let inCount = 0, outCount = 0;
+    filteredData.forEach(d => {
+        const raw = (d.ampRaw || '').trim();
+        if (raw === 'เมืองเชียงราย' || raw.includes('เมืองเชียงราย')) inCount++;
+        else outCount++;
+    });
+    const inPct = total > 0 ? ((inCount/total)*100).toFixed(1) : 0;
+    const outPct = total > 0 ? ((outCount/total)*100).toFixed(1) : 0;
+    createOrUpdateChart('ampurChart', 'bar', {
+        labels: [`ในเขตอำเภอเมืองเชียงราย (${inPct}%)`, `นอกเขต (${outPct}%)`],
+        datasets: [{ label: 'ผู้ป่วย (คน)', data: [inCount, outCount], backgroundColor: ['rgba(16,185,129,0.85)','rgba(245,158,11,0.85)'], borderRadius: 8, maxBarThickness: 55 }]
+    }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toLocaleString()} คน` } } }, scales: { x: { grid: { display: false }, ticks: { color: '#e2e8f0', font: { size: 12 } } }, y: { grid: { color: 'rgba(51,65,85,0.35)' }, ticks: { color: '#94a3b8', callback: v => v.toLocaleString()+' คน' } } } });
+}
+
+// Generic category table renderer
+function updateCategoryTable(fieldKey, tbodyId, tfootId) {
+    const tbody = document.getElementById(tbodyId);
+    const tfoot = document.getElementById(tfootId);
+    if (!tbody) return;
+    const counts = {};
+    filteredData.forEach(d => {
+        let val = (d[fieldKey] || '').trim();
+        if (!val || val === '-' || val === 'null' || val === 'undefined') val = 'ไม่ระบุ';
+        counts[val] = (counts[val] || 0) + 1;
+    });
+    const total = filteredData.length;
+    if (total === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">ไม่พบข้อมูล</td></tr>';
+        if (tfoot) tfoot.innerHTML = '';
+        return;
+    }
+    const sorted = Object.keys(counts).sort((a,b) => counts[b]-counts[a]);
+    const palette = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#64748b'];
+    let html = '';
+    sorted.forEach((key, idx) => {
+        const count = counts[key];
+        const pct = total > 0 ? ((count/total)*100).toFixed(2) : '0.00';
+        const dotColor = palette[idx % palette.length];
+        html += `<tr>
+            <td style="text-align:center;color:var(--text-muted);font-weight:500;">${idx+1}</td>
+            <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dotColor};margin-right:7px;"></span><strong>${key}</strong></td>
+            <td style="text-align:right;font-weight:600;">${count.toLocaleString()}</td>
+            <td style="text-align:right;font-weight:600;color:${dotColor};">${pct}%</td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+    if (tfoot) {
+        tfoot.innerHTML = `<tr><td style="text-align:center;"><strong>รวม</strong></td><td><strong>รวมทั้งหมด</strong></td><td style="text-align:right;font-weight:700;">${total.toLocaleString()} คน</td><td style="text-align:right;font-weight:700;color:#3b82f6;">100.0%</td></tr>`;
+    }
+}
+
 function updateTable() {
     const tbody = document.getElementById('tableBody');
     if (!tbody) return;
@@ -1212,16 +1446,15 @@ function renderCategoryChart(canvasId, fieldKey, chartType = 'doughnut', palette
     };
 
     if (isBar) {
-        options.indexAxis = 'y'; // แนวนอน แสดงชื่อและ % ชัดเจน
         options.plugins.legend = { display: false };
         options.scales = {
             x: {
-                grid: { color: 'rgba(51, 65, 85, 0.4)' },
-                ticks: { color: '#94a3b8' }
+                grid: { display: false },
+                ticks: { color: '#e2e8f0', font: { size: 11.5, weight: '500' }, maxRotation: 30, minRotation: 0 }
             },
             y: {
-                grid: { display: false },
-                ticks: { color: '#e2e8f0', font: { size: 12, weight: '500' } }
+                grid: { color: 'rgba(51, 65, 85, 0.4)' },
+                ticks: { color: '#94a3b8', callback: function(value) { return value.toLocaleString() + ' คน'; } }
             }
         };
     }
