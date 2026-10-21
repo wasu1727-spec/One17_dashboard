@@ -206,6 +206,7 @@ window.parseGoogleSheetJSONP = function(response) {
             let regis_type = getVal(row, 'REGIS_TYPE') || '-';
             let classify = getVal(row, 'CLASSIFY') || '-';
             let occ_name_th = getVal(row, 'OCC_NAME_TH') || getVal(row, 'OCC_NAME') || getVal(row, 'OCCUPATION') || '-';
+            let group_age_y = getVal(row, 'GROUP_AGE_Y') || getVal(row, 'GROUP_AGE') || getVal(row, 'AGE_GROUP') || getVal(row, 'AGE_Y') || '-';
 
             return {
                 id: hn,
@@ -224,7 +225,8 @@ window.parseGoogleSheetJSONP = function(response) {
                 summary: summary,
                 regis_type: regis_type,
                 classify: classify,
-                occ_name_th: occ_name_th
+                occ_name_th: occ_name_th,
+                group_age_y: group_age_y
             };
         });
 
@@ -303,6 +305,7 @@ function initializeDashboard() {
         setupToggle('btnShowRegisChart', 'btnShowRegisTable', 'regisTypeChartContainer', 'regisTypeTableContainer', () => updateCharts());
         setupToggle('btnShowClassifyChart', 'btnShowClassifyTable', 'classifyChartContainer', 'classifyTableContainer', () => updateCharts());
         setupToggle('btnShowOccChart', 'btnShowOccTable', 'occNameChartContainer', 'occNameTableContainer', () => updateCharts());
+        setupToggle('btnShowGroupAgeChart', 'btnShowGroupAgeTable', 'groupAgeChartContainer', 'groupAgeTableContainer', updateGroupAgeChart);
     } catch (err) {
         showError("เกิดข้อผิดพลาดในการเตรียมแดชบอร์ด (initializeDashboard): " + err.message);
     }
@@ -648,6 +651,8 @@ function updateDashboard() {
     updateOpdSummaryTable();
     updateOpdDetailChart();
     updateOpdDetailTable();
+    updateGroupAgeChart();
+    updateGroupAgeTable();
     updateRiskGroupChart();
     updateRiskGroupDetailTable();
     updateRiskTypeChart();
@@ -766,7 +771,58 @@ function updateOpdSummaryChart() {
         }
     };
 
-    createOrUpdateChart('opdSummaryChart', 'bar', data, options);
+    createOrUpdateChart('opdSummaryChart', 'doughnut', {
+        labels: labels,
+        datasets: [{
+            data: [opdCount, ipdCount, unkCount],
+            backgroundColor: [
+                '#10b981', // Emerald for OPD
+                '#f59e0b', // Amber for IPD
+                '#64748b'  // Slate for Unknown
+            ],
+            borderWidth: 0,
+            hoverOffset: 6
+        }]
+    }, {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '62%',
+        plugins: {
+            legend: {
+                display: true,
+                position: 'bottom',
+                labels: {
+                    padding: 12,
+                    font: { size: 11.5, weight: '500' },
+                    color: '#cbd5e1'
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                titleFont: { size: 12.5, weight: '600' },
+                bodyFont: { size: 12 },
+                padding: 10,
+                borderColor: 'rgba(51, 65, 85, 0.8)',
+                borderWidth: 1,
+                callbacks: {
+                    title: function(items) {
+                        const idx = items[0].dataIndex;
+                        const fullNames = [
+                            'OPD (ผู้ป่วยนอก)',
+                            'IPD (ผู้ป่วยใน)',
+                            'ไม่ระบุ OPD / IPD'
+                        ];
+                        return fullNames[idx] || items[0].label;
+                    },
+                    label: function(context) {
+                        const count = context.raw || 0;
+                        const pct = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
+                        return ` จำนวนผู้ป่วย: ${count.toLocaleString()} คน (${pct}%)`;
+                    }
+                }
+            }
+        }
+    });
 }
 
 function updateOpdSummaryTable() {
@@ -1088,6 +1144,160 @@ function updateOpdDetailChart() {
     }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toLocaleString()} คน (${total>0?((ctx.raw/total)*100).toFixed(1):0}%)` } } }, scales: { x: { grid: { display: false }, ticks: { color: '#e2e8f0', font: { size: 11 }, maxRotation: 30, minRotation: 0 } }, y: { grid: { color: 'rgba(51,65,85,0.35)' }, ticks: { color: '#94a3b8', callback: v => v.toLocaleString()+' คน' } } } });
 }
 
+// Bar chart for Group Age (GROUP_AGE_Y)
+function updateGroupAgeChart() {
+    const canvas = document.getElementById('groupAgeChart');
+    if (!canvas) return;
+
+    const ageOrder = ['L_4', '5_14', '15_24', '25_34', '35_44', '45_54', '55_59', '60_64', '65_M'];
+    const ageLabelsMap = {
+        'L_4': '< 5 ปี',
+        '5_14': '5-14 ปี',
+        '15_24': '15-24 ปี',
+        '25_34': '25-34 ปี',
+        '35_44': '35-44 ปี',
+        '45_54': '45-54 ปี',
+        '55_59': '55-59 ปี',
+        '60_64': '60-64 ปี',
+        '65_M': '65 ปีขึ้นไป'
+    };
+
+    const counts = {};
+    filteredData.forEach(d => {
+        let val = (d.group_age_y || '').trim();
+        if (!val || val === '-' || val === 'null' || val === 'undefined') val = 'ไม่ระบุ';
+        counts[val] = (counts[val] || 0) + 1;
+    });
+
+    const total = filteredData.length;
+    const sortedKeys = Object.keys(counts).sort((a, b) => {
+        let idxA = ageOrder.indexOf(a);
+        let idxB = ageOrder.indexOf(b);
+        if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+        if (idxA === -1) return 1;
+        if (idxB === -1) return -1;
+        return idxA - idxB;
+    });
+
+    const agePalette = [
+        '#38bdf8', '#0ea5e9', '#0284c7', '#2563eb', 
+        '#4f46e5', '#6366f1', '#7c3aed', '#a855f7', '#ec4899', '#64748b'
+    ];
+
+    const labels = sortedKeys.map(k => {
+        const displayName = ageLabelsMap[k] || k;
+        const pct = total > 0 ? ((counts[k] / total) * 100).toFixed(1) : 0;
+        return `${displayName} (${pct}%)`;
+    });
+
+    createOrUpdateChart('groupAgeChart', 'bar', {
+        labels: labels,
+        datasets: [{
+            label: 'ผู้ป่วย (คน)',
+            data: sortedKeys.map(k => counts[k]),
+            backgroundColor: sortedKeys.map((_, i) => agePalette[i % agePalette.length]),
+            borderRadius: 6,
+            maxBarThickness: 45
+        }]
+    }, {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                callbacks: {
+                    title: function(items) {
+                        const k = sortedKeys[items[0].dataIndex];
+                        return (ageLabelsMap[k] || k) + (k !== (ageLabelsMap[k] || k) ? ` [${k}]` : '');
+                    },
+                    label: function(ctx) {
+                        const count = ctx.raw || 0;
+                        const pct = total > 0 ? ((count / total) * 100).toFixed(2) : 0;
+                        return ` จำนวน: ${count.toLocaleString()} คน (${pct}%)`;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                ticks: { color: '#e2e8f0', font: { size: 10.5, weight: '500' }, maxRotation: 35, minRotation: 0 }
+            },
+            y: {
+                grid: { color: 'rgba(51, 65, 85, 0.35)' },
+                ticks: { color: '#94a3b8', callback: v => v.toLocaleString() + ' คน' }
+            }
+        }
+    });
+}
+
+function updateGroupAgeTable() {
+    const tbody = document.getElementById('groupAgeTableBody');
+    const tfoot = document.getElementById('groupAgeTableFoot');
+    if (!tbody) return;
+
+    const ageOrder = ['L_4', '5_14', '15_24', '25_34', '35_44', '45_54', '55_59', '60_64', '65_M'];
+    const ageLabelsMap = {
+        'L_4': '< 5 ปี (0 - 4 ปี)',
+        '5_14': '5 - 14 ปี',
+        '15_24': '15 - 24 ปี',
+        '25_34': '25 - 34 ปี',
+        '35_44': '35 - 44 ปี',
+        '45_54': '45 - 54 ปี',
+        '55_59': '55 - 59 ปี',
+        '60_64': '60 - 64 ปี',
+        '65_M': '65 ปีขึ้นไป'
+    };
+
+    const counts = {};
+    filteredData.forEach(d => {
+        let val = (d.group_age_y || '').trim();
+        if (!val || val === '-' || val === 'null' || val === 'undefined') val = 'ไม่ระบุ';
+        counts[val] = (counts[val] || 0) + 1;
+    });
+
+    const total = filteredData.length;
+    if (total === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">ไม่พบข้อมูล</td></tr>';
+        if (tfoot) tfoot.innerHTML = '';
+        return;
+    }
+
+    const sortedKeys = Object.keys(counts).sort((a, b) => {
+        let idxA = ageOrder.indexOf(a);
+        let idxB = ageOrder.indexOf(b);
+        if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+        if (idxA === -1) return 1;
+        if (idxB === -1) return -1;
+        return idxA - idxB;
+    });
+
+    const agePalette = [
+        '#38bdf8', '#0ea5e9', '#0284c7', '#2563eb', 
+        '#4f46e5', '#6366f1', '#7c3aed', '#a855f7', '#ec4899', '#64748b'
+    ];
+
+    let html = '';
+    sortedKeys.forEach((key, idx) => {
+        const count = counts[key];
+        const pct = total > 0 ? ((count / total) * 100).toFixed(2) : '0.00';
+        const displayName = ageLabelsMap[key] || key;
+        const color = agePalette[idx % agePalette.length];
+
+        html += `<tr>
+            <td style="text-align:center;color:var(--text-muted);font-weight:500;">${idx + 1}</td>
+            <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:7px;"></span><strong>${displayName}</strong> <span style="font-size:11px;opacity:0.65;">(${key})</span></td>
+            <td style="text-align:right;font-weight:600;">${count.toLocaleString()}</td>
+            <td style="text-align:right;font-weight:600;color:${color};">${pct}%</td>
+        </tr>`;
+    });
+
+    tbody.innerHTML = html;
+    if (tfoot) {
+        tfoot.innerHTML = `<tr><td style="text-align:center;"><strong>รวม</strong></td><td><strong>รวมทั้งหมด</strong></td><td style="text-align:right;font-weight:700;">${total.toLocaleString()} คน</td><td style="text-align:right;font-weight:700;color:#3b82f6;">100.0%</td></tr>`;
+    }
+}
+
 // Bar chart for Risk Group
 function updateRiskGroupChart() {
     const counts = {};
@@ -1114,7 +1324,7 @@ function updateRiskTypeChart() {
     }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toLocaleString()} คน (${total>0?((ctx.raw/total)*100).toFixed(1):0}%)` } } }, scales: { x: { grid: { display: false }, ticks: { color: '#e2e8f0', font: { size: 11 }, maxRotation: 30, minRotation: 0 } }, y: { grid: { color: 'rgba(51,65,85,0.35)' }, ticks: { color: '#94a3b8', callback: v => v.toLocaleString()+' คน' } } } });
 }
 
-// Bar chart for Ampur (in/out district)
+// Donut chart for Ampur (in/out district)
 function updateAmpurChart() {
     const total = filteredData.length;
     let inCount = 0, outCount = 0;
@@ -1125,10 +1335,38 @@ function updateAmpurChart() {
     });
     const inPct = total > 0 ? ((inCount/total)*100).toFixed(1) : 0;
     const outPct = total > 0 ? ((outCount/total)*100).toFixed(1) : 0;
-    createOrUpdateChart('ampurChart', 'bar', {
-        labels: [`ในเขตอำเภอเมืองเชียงราย (${inPct}%)`, `นอกเขต (${outPct}%)`],
-        datasets: [{ label: 'ผู้ป่วย (คน)', data: [inCount, outCount], backgroundColor: ['rgba(16,185,129,0.85)','rgba(245,158,11,0.85)'], borderRadius: 8, maxBarThickness: 55 }]
-    }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toLocaleString()} คน` } } }, scales: { x: { grid: { display: false }, ticks: { color: '#e2e8f0', font: { size: 12 } } }, y: { grid: { color: 'rgba(51,65,85,0.35)' }, ticks: { color: '#94a3b8', callback: v => v.toLocaleString()+' คน' } } } });
+    createOrUpdateChart('ampurChart', 'doughnut', {
+        labels: [
+            `ในเขตอำเภอเมืองเชียงราย (${inPct}%)`,
+            `นอกเขต (${outPct}%)`
+        ],
+        datasets: [{
+            data: [inCount, outCount],
+            backgroundColor: ['#10b981', '#f59e0b'],
+            borderWidth: 0,
+            hoverOffset: 6
+        }]
+    }, {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '62%',
+        plugins: {
+            legend: {
+                display: true,
+                position: 'bottom',
+                labels: {
+                    padding: 12,
+                    font: { size: 11.5, weight: '500' },
+                    color: '#cbd5e1'
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: ctx => ` จำนวน: ${ctx.raw.toLocaleString()} คน (${total > 0 ? ((ctx.raw/total)*100).toFixed(1) : 0}%)`
+                }
+            }
+        }
+    });
 }
 
 // Generic category table renderer
@@ -1273,22 +1511,25 @@ function updateCharts() {
         return `${k}: ${count.toLocaleString()} คน (${pct}%)`;
     });
 
-    createOrUpdateChart('nationChart', 'pie', {
+    createOrUpdateChart('nationChart', 'doughnut', {
         labels: nationLabels,
         datasets: [{
             data: displayNationKeys.map(k => displayCounts[k]),
             backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'],
-            borderWidth: 0
+            borderWidth: 0,
+            hoverOffset: 6
         }]
     }, { 
         responsive: true, 
         maintainAspectRatio: false, 
+        cutout: '62%',
         plugins: { 
             legend: { 
                 position: 'bottom',
                 labels: {
-                    padding: 16,
-                    font: { size: 13, weight: '500' }
+                    padding: 12,
+                    font: { size: 11.5, weight: '500' },
+                    color: '#cbd5e1'
                 }
             },
             tooltip: {
@@ -1332,7 +1573,7 @@ function updateCharts() {
 
     // 5. RX_RESULT Chart (ผลการรักษา - Top 5)
     renderCategoryChart('rxResultChart', 'rx_result', 'bar', [
-        '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'
+        '#10b981', '#06b6d4', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'
     ]);
 
     // 6. B24_RESULT Chart (ผลตรวจ B24/HIV)
@@ -1416,7 +1657,8 @@ function renderCategoryChart(canvasId, fieldKey, chartType = 'doughnut', palette
             data: displayKeys.map(k => displayCounts[k]),
             backgroundColor: displayKeys.map((k, i) => colors[i % colors.length]),
             borderWidth: 0,
-            borderRadius: isBar ? 6 : 0
+            borderRadius: isBar ? 6 : 0,
+            hoverOffset: isBar ? 0 : 6
         }]
     };
 
@@ -1429,7 +1671,7 @@ function renderCategoryChart(canvasId, fieldKey, chartType = 'doughnut', palette
                 position: 'bottom',
                 labels: {
                     padding: 12,
-                    font: { size: 12, weight: '500' },
+                    font: { size: 11.5, weight: '500' },
                     color: '#cbd5e1'
                 }
             },
@@ -1457,6 +1699,8 @@ function renderCategoryChart(canvasId, fieldKey, chartType = 'doughnut', palette
                 ticks: { color: '#94a3b8', callback: function(value) { return value.toLocaleString() + ' คน'; } }
             }
         };
+    } else {
+        options.cutout = '62%';
     }
 
     createOrUpdateChart(canvasId, chartType, data, options);
@@ -1701,6 +1945,7 @@ async function handleExcelFile(file) {
                 let regis_type = getField(row, ['REGIS_TYPE', 'ประเภทการขึ้นทะเบียน']) || '-';
                 let classify = getField(row, ['CLASSIFY', 'การจำแนก']) || '-';
                 let occ_name_th = getField(row, ['OCC_NAME_TH', 'OCC_NAME', 'OCCUPATION', 'อาชีพ']) || '-';
+                let group_age_y = getField(row, ['GROUP_AGE_Y', 'GROUP_AGE', 'AGE_GROUP', 'กลุ่มอายุ', 'AGE_Y']) || '-';
 
                 let ampArea = (ampRaw === 'เมืองเชียงราย' || ampRaw.includes('เมืองเชียงราย')) ? 'ในเขตอำเภอเมืองเชียงราย' : 'นอกเขต';
 
@@ -1722,7 +1967,8 @@ async function handleExcelFile(file) {
                     summary: summary,
                     regis_type: regis_type,
                     classify: classify,
-                    occ_name_th: occ_name_th
+                    occ_name_th: occ_name_th,
+                    group_age_y: group_age_y
                 });
 
                 newRawExcelRows.push(row);
